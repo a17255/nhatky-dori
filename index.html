@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nhật ký Dori</title>
+<title>Nhật ký Gia Đình</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -192,6 +192,23 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:12px 24px;border-radius:var(--radius-sm);font-size:0.9rem;opacity:0;transition:opacity .3s,transform .3s;z-index:500;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* ── Child Tabs ── */
+.child-tabs{display:flex;gap:0;max-width:600px;margin:0 auto;padding:12px 16px 0}
+.child-tab{flex:1;padding:10px;text-align:center;background:var(--bg2);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:0.85rem;font-weight:500;transition:all .2s;border-bottom:2px solid transparent}
+.child-tab:first-child{border-radius:var(--radius-sm) 0 0 0}
+.child-tab:last-child{border-radius:0 var(--radius-sm) 0 0}
+.child-tab.active{color:var(--pink);border-bottom-color:var(--pink);background:var(--bg)}
+.child-tab:hover:not(.active){color:var(--text)}
+
+/* ── Admin Mode ── */
+.admin-only{display:none!important}
+body.admin-mode .admin-only{display:flex!important}
+.admin-badge{font-size:0.65rem;background:var(--pink);color:var(--bg);padding:2px 8px;border-radius:10px;margin-left:8px;font-weight:600}
+.admin-enter-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:8px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.82rem;transition:all .2s}
+.admin-enter-btn:hover{border-color:var(--pink);color:var(--pink)}
+.admin-exit-btn{background:var(--pink-bg);border:1px solid var(--pink);color:var(--pink);padding:8px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.82rem;font-weight:600;transition:all .2s}
+.admin-exit-btn:hover{background:var(--pink);color:var(--bg)}
+
 /* ── Year Separator ── */
 .year-separator{text-align:center;padding:20px 0 16px;position:relative}
 .year-separator span{background:var(--bg);padding:0 16px;font-size:0.8rem;color:var(--text2);text-transform:uppercase;letter-spacing:2px;position:relative;z-index:1}
@@ -205,7 +222,7 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 <div id="lockScreen">
   <div class="lock-card">
     <div class="lock-stars">✦ ✦ ✦</div>
-    <h1 class="diary-title">Nhật ký Dori</h1>
+    <h1 class="diary-title">Nhật ký Gia Đình</h1>
     <p class="lock-subtitle">Enter passcode to view the diary</p>
     <input class="lock-input" type="password" id="passcodeInput" placeholder="Passcode" autocomplete="off">
     <label class="remember-label"><input type="checkbox" id="rememberMe" checked> Remember this device</label>
@@ -217,23 +234,29 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 <!-- Main App -->
 <div id="app" style="display:none">
   <header class="header">
-    <h1 class="diary-title">Nhật ký Dori</h1>
+    <h1 class="diary-title">Nhật ký <span id="headerChildName">Gia Đình</span></h1>
     <div class="header-right">
       <div class="grid-toggle">
         <button class="grid-btn active" onclick="setGrid(1)" title="1 column">&#9776;</button>
         <button class="grid-btn" onclick="setGrid(2)" title="2 columns">&#9638;&#9638;</button>
         <button class="grid-btn" onclick="setGrid(3)" title="3 columns">&#9638;&#9638;&#9638;</button>
       </div>
+      <button id="adminToggleBtn" class="admin-enter-btn" onclick="toggleAdmin()">Admin</button>
       <button class="settings-btn" onclick="openSettings()" title="Settings">&#9881;</button>
     </div>
   </header>
+  <div class="child-tabs" id="childTabs">
+    <div class="child-tab active" onclick="filterChild('all')">All</div>
+    <div class="child-tab" onclick="filterChild('Dori')">Dori</div>
+    <div class="child-tab" onclick="filterChild('Baby2')">Baby 2</div>
+  </div>
   <main class="timeline" id="timeline">
     <div class="loading-state" id="loadingState">
       <div class="spinner"></div>
       <p>Loading diary...</p>
     </div>
   </main>
-  <div class="fab-group">
+  <div class="fab-group admin-only">
     <button class="fab fab-small" onclick="openBulkModal()" title="Bulk upload photos">&#128247;</button>
     <button class="fab" onclick="openAddModal()" title="Add new entry">+</button>
   </div>
@@ -247,6 +270,13 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
       <button class="modal-close" onclick="closeAddModal()">&times;</button>
     </div>
     <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Child</label>
+        <select class="form-input" id="entryChild">
+          <option value="Dori">Dori</option>
+          <option value="Baby2">Baby 2</option>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">Date</label>
         <input class="form-input" type="date" id="entryDate">
@@ -284,21 +314,6 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
     </div>
     <div class="modal-body">
       <div class="settings-section">
-        <h3>Change Passcode</h3>
-        <div class="form-group">
-          <label class="form-label">Current passcode</label>
-          <input class="form-input" type="password" id="currentPass" autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label class="form-label">New passcode</label>
-          <div class="settings-row">
-            <input class="form-input" type="password" id="newPass" autocomplete="off">
-            <button class="settings-small-btn" onclick="changePasscode()">Update</button>
-          </div>
-          <div class="settings-msg" id="passMsg"></div>
-        </div>
-      </div>
-      <div class="settings-section">
         <h3>Event Reminders</h3>
         <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px">Get notified about birthdays, milestones, or any special day.</p>
         <button class="settings-small-btn" onclick="openReminderForm()">+ Add Reminder</button>
@@ -326,6 +341,13 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
       <button class="modal-close" onclick="closeBulkModal()">&times;</button>
     </div>
     <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Child</label>
+        <select class="form-input" id="bulkChild">
+          <option value="Dori">Dori</option>
+          <option value="Baby2">Baby 2</option>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">Date for all photos</label>
         <input class="form-input" type="date" id="bulkDate">
@@ -399,10 +421,15 @@ let entries = [];
 let editingId = null;
 let selectedPhoto = null;
 let deleteTargetId = null;
+let currentChild = 'all'; // filter: 'all', 'Dori', 'Baby2'
+let isAdmin = false;
 
-// Default passcode hash (passcode: "28032024")
+// View passcode hash (passcode: "28032024")
 const DEFAULT_HASH = '061ae51a1848dd56ef78e22437c8e70ab865d75b31dc70e6bc9f63de6f755dbf';
 let passcodeHash = DEFAULT_HASH;
+
+// Admin passcode hash (passcode: "089450")
+const ADMIN_HASH = '4328778c44b47c4d4573043bf28f0ef3bd2bfc39d613dd37a97ec04920cd95d3';
 
 /* ── Utility ── */
 async function sha256(text) {
@@ -467,6 +494,43 @@ async function unlock() {
 async function tryAutoUnlock() {
   const saved = localStorage.getItem('dori_auth');
   if (saved && saved === passcodeHash) enterApp();
+}
+
+/* ── Admin Mode ── */
+async function toggleAdmin() {
+  if (isAdmin) {
+    isAdmin = false;
+    document.body.classList.remove('admin-mode');
+    const btn = document.getElementById('adminToggleBtn');
+    btn.className = 'admin-enter-btn';
+    btn.textContent = 'Admin';
+    renderTimeline();
+    toast('Viewer mode');
+    return;
+  }
+  const code = prompt('Enter admin passcode:');
+  if (!code) return;
+  const hash = await sha256(code);
+  if (hash === ADMIN_HASH) {
+    isAdmin = true;
+    document.body.classList.add('admin-mode');
+    const btn = document.getElementById('adminToggleBtn');
+    btn.className = 'admin-exit-btn';
+    btn.textContent = 'Exit Admin';
+    renderTimeline();
+    toast('Admin mode enabled');
+  } else {
+    toast('Wrong admin passcode');
+  }
+}
+
+/* ── Child Filter ── */
+function filterChild(child) {
+  currentChild = child;
+  document.querySelectorAll('.child-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === (child === 'all' ? 'All' : child === 'Baby2' ? 'Baby 2' : child)));
+  const name = child === 'all' ? 'Gia Đình' : (child === 'Baby2' ? 'Baby 2' : child);
+  document.getElementById('headerChildName').textContent = name;
+  renderTimeline();
 }
 
 async function changePasscode() {
@@ -534,14 +598,17 @@ function removePhoto() {
 
 /* ── Add/Edit Modal ── */
 function openAddModal(id) {
+  if (!isAdmin) { toast('Admin mode required'); return; }
   editingId = id || null;
   document.getElementById('modalTitle').textContent = id ? 'Edit Entry' : 'New Entry';
+  document.getElementById('entryChild').value = currentChild !== 'all' ? currentChild : 'Dori';
   document.getElementById('entryDate').value = todayStr();
   document.getElementById('entryText').value = '';
   removePhoto();
   if (id) {
     const entry = entries.find(e => e.id === id);
     if (entry) {
+      document.getElementById('entryChild').value = entry.child || 'Dori';
       document.getElementById('entryDate').value = entry.date;
       document.getElementById('entryText').value = entry.text || '';
       if (entry.photoURL) {
@@ -601,7 +668,8 @@ async function saveEntry() {
       ptext.textContent = 'Done!';
     }
 
-    const data = { date, text, photoURL, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    const child = document.getElementById('entryChild').value;
+    const data = { date, text, photoURL, child, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
 
     if (editingId) {
       await db.collection('entries').doc(editingId).update(data);
@@ -624,6 +692,7 @@ async function saveEntry() {
 
 /* ── Delete Entry ── */
 function confirmDelete(id) {
+  if (!isAdmin) { toast('Admin mode required'); return; }
   deleteTargetId = id;
   document.getElementById('confirmOverlay').classList.add('active');
   document.getElementById('confirmDeleteBtn').onclick = async () => {
@@ -662,12 +731,16 @@ async function loadEntries() {
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
 
-  if (entries.length === 0) {
+  // Filter by selected child
+  const filtered = currentChild === 'all' ? entries : entries.filter(e => (e.child || 'Dori') === currentChild);
+
+  if (filtered.length === 0) {
+    const name = currentChild === 'all' ? 'the diary' : (currentChild === 'Baby2' ? "Baby 2's diary" : "Dori's diary");
     timeline.innerHTML = `
       <div class="empty-state">
         <div class="icon">📖</div>
-        <h2>Start Dori's Diary</h2>
-        <p>Tap the + button to add the first entry!</p>
+        <h2>Start ${currentChild === 'all' ? "the Family" : (currentChild === 'Baby2' ? "Baby 2's" : "Dori's")} Diary</h2>
+        <p>${isAdmin ? 'Tap the + button to add the first entry!' : 'No entries yet.'}</p>
       </div>`;
     return;
   }
@@ -675,16 +748,18 @@ function renderTimeline() {
   let html = '<div class="timeline-line">';
   let lastYear = '';
 
-  entries.forEach(entry => {
+  filtered.forEach(entry => {
     const year = entry.date?.substring(0, 4) || '';
     if (year !== lastYear) {
       html += `<div class="year-separator"><span>${year}</span></div>`;
       lastYear = year;
     }
 
+    const childLabel = (currentChild === 'all' && entry.child) ? `<span style="font-size:0.75rem;color:var(--blue);margin-left:8px">${entry.child === 'Baby2' ? 'Baby 2' : entry.child}</span>` : '';
+
     html += `<div class="entry-card">
       <div class="entry-dot"></div>
-      <div class="entry-date">${formatDate(entry.date)}</div>`;
+      <div class="entry-date">${formatDate(entry.date)}${childLabel}</div>`;
 
     if (entry.photoURL) {
       html += `<img class="entry-photo" src="${entry.photoURL}" alt="diary photo" loading="lazy" data-full="${entry.photoURL}">`;
@@ -694,11 +769,14 @@ function renderTimeline() {
       html += `<div class="entry-text">${escapeHtml(entry.text)}</div>`;
     }
 
-    html += `<div class="entry-actions">
-        <button class="entry-action-btn" onclick="openAddModal('${entry.id}')">✏️ Edit</button>
-        <button class="entry-action-btn" onclick="confirmDelete('${entry.id}')">🗑️ Delete</button>
-      </div>
-    </div>`;
+    if (isAdmin) {
+      html += `<div class="entry-actions">
+          <button class="entry-action-btn" onclick="openAddModal('${entry.id}')">✏️ Edit</button>
+          <button class="entry-action-btn" onclick="confirmDelete('${entry.id}')">🗑️ Delete</button>
+        </div>`;
+    }
+
+    html += '</div>';
   });
 
   html += '</div>';
@@ -785,11 +863,12 @@ async function bulkUpload() {
 
       const photoURL = result.data.image?.url || result.data.display_url;
 
-      // Save to Firestore (text empty — user or Claude will add later)
+      const child = document.getElementById('bulkChild').value;
       await db.collection('entries').add({
         date,
         text: '',
         photoURL,
+        child,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
