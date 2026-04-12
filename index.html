@@ -43,6 +43,27 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .header .diary-title{font-size:1.8rem}
 .header-right{display:flex;gap:8px;align-items:center}
 
+/* ── Grid Toggle ── */
+.grid-toggle{display:flex;gap:2px;background:var(--bg3);border-radius:8px;padding:2px}
+.grid-btn{background:none;border:none;color:var(--text2);padding:6px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;transition:all .2s;line-height:1}
+.grid-btn.active{background:var(--pink);color:var(--bg)}
+.grid-btn:hover:not(.active){color:var(--text)}
+
+/* ── Grid Layouts ── */
+.timeline.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.timeline.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.timeline.grid-2 .timeline-line::before,.timeline.grid-3 .timeline-line::before{display:none}
+.timeline.grid-2 .timeline-line,.timeline.grid-3 .timeline-line{display:contents}
+.timeline.grid-2 .entry-card,.timeline.grid-3 .entry-card{margin-left:0;margin-bottom:0}
+.timeline.grid-2 .entry-dot,.timeline.grid-3 .entry-dot{display:none}
+.timeline.grid-2 .year-separator,.timeline.grid-3 .year-separator{grid-column:1/-1}
+.timeline.grid-2 .year-separator::after,.timeline.grid-3 .year-separator::after{left:0}
+.timeline.grid-2 .entry-date,.timeline.grid-3 .entry-date{font-size:0.75rem;padding:10px 12px 0}
+.timeline.grid-2 .entry-text,.timeline.grid-3 .entry-text{font-size:0.82rem;padding:8px 12px 10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.timeline.grid-3 .entry-text{-webkit-line-clamp:2;font-size:0.78rem}
+.timeline.grid-2 .entry-actions,.timeline.grid-3 .entry-actions{padding:0 10px 8px}
+.timeline.grid-2 .entry-action-btn,.timeline.grid-3 .entry-action-btn{font-size:0.7rem;padding:2px 6px}
+
 /* ── Floating Add Buttons ── */
 .fab-group{position:fixed;bottom:28px;right:28px;display:flex;flex-direction:column;gap:12px;align-items:center;z-index:40}
 .fab{width:60px;height:60px;border-radius:50%;background:var(--pink);color:var(--bg);border:none;font-size:2rem;cursor:pointer;box-shadow:0 4px 20px rgba(244,166,193,0.4);transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center;line-height:1}
@@ -198,6 +219,11 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
   <header class="header">
     <h1 class="diary-title">Nhật ký Dori</h1>
     <div class="header-right">
+      <div class="grid-toggle">
+        <button class="grid-btn active" onclick="setGrid(1)" title="1 column">&#9776;</button>
+        <button class="grid-btn" onclick="setGrid(2)" title="2 columns">&#9638;&#9638;</button>
+        <button class="grid-btn" onclick="setGrid(3)" title="3 columns">&#9638;&#9638;&#9638;</button>
+      </div>
       <button class="settings-btn" onclick="openSettings()" title="Settings">&#9881;</button>
     </div>
   </header>
@@ -271,6 +297,12 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
           </div>
           <div class="settings-msg" id="passMsg"></div>
         </div>
+      </div>
+      <div class="settings-section">
+        <h3>Event Reminders</h3>
+        <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px">Get notified about birthdays, milestones, or any special day.</p>
+        <button class="settings-small-btn" onclick="openReminderForm()">+ Add Reminder</button>
+        <div id="reminderList" style="margin-top:12px"></div>
       </div>
       <div class="settings-section">
         <h3>Free Tier Limits</h3>
@@ -620,6 +652,7 @@ async function loadEntries() {
     const snap = await db.collection('entries').orderBy('date', 'desc').get();
     entries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderTimeline();
+    checkReminders();
   } catch(err) {
     console.error(err);
     timeline.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><h2>Connection Error</h2><p>${err.message}</p></div>`;
@@ -958,10 +991,88 @@ function openSettings() {
   document.getElementById('newPass').value = '';
   document.getElementById('passMsg').textContent = '';
   document.getElementById('settingsModal').classList.add('active');
+  // Load reminder list
+  loadReminders().then(reminders => {
+    const el = document.getElementById('reminderList');
+    if (reminders.length === 0) { el.innerHTML = '<p style="font-size:0.8rem;color:var(--text2)">No reminders yet.</p>'; return; }
+    el.innerHTML = reminders.map(r =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem">
+        <span><strong style="color:var(--pink)">${r.date}</strong> — ${escapeHtml(r.title)}</span>
+        <button onclick="deleteReminder('${r.id}')" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem">&times;</button>
+      </div>`
+    ).join('');
+  });
 }
 
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('active');
+}
+
+/* ── Grid Layout Toggle ── */
+function setGrid(cols) {
+  const tl = document.getElementById('timeline');
+  tl.classList.remove('grid-2', 'grid-3');
+  if (cols > 1) tl.classList.add('grid-' + cols);
+  document.querySelectorAll('.grid-btn').forEach((b, i) => b.classList.toggle('active', i === cols - 1));
+  localStorage.setItem('dori_grid', cols);
+}
+
+// Restore saved grid preference
+const savedGrid = parseInt(localStorage.getItem('dori_grid')) || 1;
+if (savedGrid > 1) setTimeout(() => setGrid(savedGrid), 100);
+
+/* ── Event Reminders ── */
+async function loadReminders() {
+  try {
+    const snap = await db.collection('reminders').orderBy('date', 'asc').get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { return []; }
+}
+
+async function checkReminders() {
+  const reminders = await loadReminders();
+  const today = todayStr();
+  const upcoming = reminders.filter(r => {
+    const diff = (new Date(r.date) - new Date(today)) / (1000*60*60*24);
+    return diff >= 0 && diff <= 7;
+  });
+  if (upcoming.length > 0) {
+    const msgs = upcoming.map(r => {
+      const diff = Math.round((new Date(r.date) - new Date(today)) / (1000*60*60*24));
+      const when = diff === 0 ? 'TODAY' : diff === 1 ? 'Tomorrow' : `In ${diff} days`;
+      return `${when}: ${r.title}`;
+    });
+    showReminderBanner(msgs);
+  }
+}
+
+function showReminderBanner(msgs) {
+  let banner = document.getElementById('reminderBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'reminderBanner';
+    banner.style.cssText = 'background:var(--pink-bg);border:1px solid var(--pink);border-radius:10px;padding:12px 16px;margin:12px 0;font-size:0.85rem;line-height:1.6';
+    const tl = document.getElementById('timeline');
+    tl.insertBefore(banner, tl.firstChild);
+  }
+  banner.innerHTML = '<strong style="color:var(--pink)">Upcoming Events</strong><br>' + msgs.map(m => escapeHtml(m)).join('<br>');
+}
+
+async function deleteReminder(id) {
+  await db.collection('reminders').doc(id).delete();
+  toast('Reminder deleted');
+  openSettings(); // refresh list
+  checkReminders();
+}
+
+function openReminderForm() {
+  const date = prompt('Event date (YYYY-MM-DD):');
+  if (!date) return;
+  const title = prompt('Event name:');
+  if (!title) return;
+  db.collection('reminders').add({ date, title, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+    .then(() => { toast('Reminder saved!'); checkReminders(); })
+    .catch(e => toast('Error: ' + e.message));
 }
 
 /* ── Init ── */
