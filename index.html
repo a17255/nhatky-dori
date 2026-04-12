@@ -790,35 +790,50 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-/* ── Bulk Upload ── */
-let bulkFiles = [];
+/* ── Bulk Upload (queue-based: add more photos while uploading) ── */
+let bulkQueue = []; // { file, id, status: 'waiting'|'uploading'|'done'|'failed' }
+let bulkNextId = 0;
+let bulkUploading = false;
+let bulkDone = 0, bulkFailed = 0;
 
 document.getElementById('bulkFiles').addEventListener('change', e => {
-  bulkFiles = Array.from(e.target.files);
+  const newFiles = Array.from(e.target.files);
+  if (newFiles.length === 0) return;
+
   const list = document.getElementById('bulkFileList');
-  const count = document.getElementById('bulkCount');
-  const btn = document.getElementById('bulkSubmitBtn');
-
-  if (bulkFiles.length === 0) { list.innerHTML = ''; count.textContent = ''; btn.style.display = 'none'; return; }
-
-  count.textContent = bulkFiles.length + ' photo(s) selected';
-  btn.style.display = '';
-  list.innerHTML = '';
-
-  bulkFiles.forEach((f, i) => {
+  newFiles.forEach(f => {
+    const id = bulkNextId++;
+    bulkQueue.push({ file: f, id, status: 'waiting' });
     const url = URL.createObjectURL(f);
-    list.innerHTML += `<div class="bulk-file-item" id="bulkItem${i}"><img src="${url}" alt=""><span class="name">${f.name}</span><span class="status" id="bulkStatus${i}">Waiting</span></div>`;
+    list.innerHTML += `<div class="bulk-file-item" id="bulkItem${id}"><img src="${url}" alt=""><span class="name">${f.name}</span><span class="status" id="bulkStatus${id}">Waiting</span></div>`;
   });
+
+  document.getElementById('bulkCount').textContent = bulkQueue.length + ' photo(s) total';
+  document.getElementById('bulkSubmitBtn').style.display = '';
+  // Reset file input so same files can be re-selected
+  e.target.value = '';
+
+  // If already uploading, new files will be picked up by the loop automatically
+  if (bulkUploading) updateBulkProgress();
 });
 
 function openBulkModal() {
-  bulkFiles = [];
+  if (!bulkUploading) {
+    bulkQueue = [];
+    bulkNextId = 0;
+    bulkDone = 0;
+    bulkFailed = 0;
+  }
   document.getElementById('bulkDate').value = todayStr();
   document.getElementById('bulkFiles').value = '';
-  document.getElementById('bulkFileList').innerHTML = '';
-  document.getElementById('bulkCount').textContent = '';
-  document.getElementById('bulkSubmitBtn').style.display = 'none';
-  document.getElementById('bulkProgress').style.display = 'none';
+  if (!bulkUploading) {
+    document.getElementById('bulkFileList').innerHTML = '';
+    document.getElementById('bulkCount').textContent = '';
+    document.getElementById('bulkSubmitBtn').style.display = 'none';
+    document.getElementById('bulkSubmitBtn').disabled = false;
+    document.getElementById('bulkSubmitBtn').textContent = 'Upload All';
+    document.getElementById('bulkProgress').style.display = 'none';
+  }
   document.getElementById('bulkModal').classList.add('active');
 }
 
@@ -826,32 +841,45 @@ function closeBulkModal() {
   document.getElementById('bulkModal').classList.remove('active');
 }
 
+function updateBulkProgress() {
+  const total = bulkQueue.length;
+  const processed = bulkDone + bulkFailed;
+  const fill = document.getElementById('bulkProgressFill');
+  const ptext = document.getElementById('bulkProgressText');
+  const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+  fill.style.width = pct + '%';
+  ptext.textContent = `${bulkDone} done, ${bulkFailed} failed / ${total} total`;
+  document.getElementById('bulkCount').textContent = total + ' photo(s) total';
+}
+
 async function bulkUpload() {
   const date = document.getElementById('bulkDate').value;
   if (!date) { toast('Please pick a date'); return; }
-  if (bulkFiles.length === 0) { toast('No photos selected'); return; }
+  const waiting = bulkQueue.filter(q => q.status === 'waiting');
+  if (waiting.length === 0) { toast('No new photos to upload'); return; }
+
+  if (bulkUploading) return; // already running
+  bulkUploading = true;
 
   const btn = document.getElementById('bulkSubmitBtn');
   btn.disabled = true;
   btn.textContent = 'Uploading...';
   document.getElementById('bulkProgress').style.display = '';
-  const fill = document.getElementById('bulkProgressFill');
-  const ptext = document.getElementById('bulkProgressText');
 
-  let done = 0, failed = 0;
+  // Process queue — keeps running until all items (including newly added) are done
+  while (true) {
+    const next = bulkQueue.find(q => q.status === 'waiting');
+    if (!next) break;
 
-  for (let i = 0; i < bulkFiles.length; i++) {
-    const f = bulkFiles[i];
-    const statusEl = document.getElementById('bulkStatus' + i);
-    statusEl.textContent = 'Uploading...';
-    statusEl.className = 'status';
+    next.status = 'uploading';
+    const statusEl = document.getElementById('bulkStatus' + next.id);
+    if (statusEl) { statusEl.textContent = 'Uploading...'; statusEl.className = 'status'; }
 
     try {
-      // Convert to base64
       const base64 = await new Promise(resolve => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.readAsDataURL(f);
+        reader.readAsDataURL(next.file);
       });
 
       const formData = new FormData();
@@ -863,7 +891,6 @@ async function bulkUpload() {
       if (!result.success) throw new Error('Upload failed');
 
       const photoURL = result.data.image?.url || result.data.display_url;
-
       const child = document.getElementById('bulkChild').value;
       await db.collection('entries').add({
         date,
@@ -874,23 +901,23 @@ async function bulkUpload() {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      done++;
-      statusEl.textContent = 'Done';
-      statusEl.className = 'status done';
+      next.status = 'done';
+      bulkDone++;
+      if (statusEl) { statusEl.textContent = 'Done'; statusEl.className = 'status done'; }
     } catch(err) {
-      failed++;
-      statusEl.textContent = 'Failed';
-      statusEl.className = 'status err';
+      next.status = 'failed';
+      bulkFailed++;
+      if (statusEl) { statusEl.textContent = 'Failed'; statusEl.className = 'status err'; }
     }
 
-    const pct = Math.round(((i + 1) / bulkFiles.length) * 100);
-    fill.style.width = pct + '%';
-    ptext.textContent = `${done} done, ${failed} failed / ${bulkFiles.length} total`;
+    updateBulkProgress();
   }
 
+  bulkUploading = false;
   btn.textContent = 'Done!';
-  toast(`Uploaded ${done} photo(s)` + (failed ? `, ${failed} failed` : ''));
-  setTimeout(() => { closeBulkModal(); loadEntries(); }, 1500);
+  btn.disabled = false;
+  toast(`Uploaded ${bulkDone} photo(s)` + (bulkFailed ? `, ${bulkFailed} failed` : ''));
+  loadEntries();
 }
 
 /* ── Lightbox: full-screen image viewer ── */
