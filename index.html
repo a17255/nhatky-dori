@@ -261,7 +261,7 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
           <tr><td>Photos (ImgBB)</td><td>32 MB per image, unlimited uploads</td></tr>
           <tr><td>Database (Firestore)</td><td>1 GB data · 50K reads/day · 20K writes/day</td></tr>
           <tr><td>Hosting (GitHub Pages)</td><td>1 GB repo · 100 GB bandwidth/month · 10 builds/hour</td></tr>
-          <tr><td>Photo auto-resize</td><td>Max 1200px, JPEG 85% quality before upload</td></tr>
+          <tr><td>Photo quality</td><td>Original resolution, no compression</td></tr>
         </table>
         <p class="limits-note">For a family diary, these limits are more than enough.</p>
       </div>
@@ -500,17 +500,13 @@ async function saveEntry() {
       const fill = document.getElementById('progressFill');
       const ptext = document.getElementById('progressText');
       fill.style.width = '30%';
-      ptext.textContent = 'Resizing...';
-
-      const resized = await resizeImage(selectedPhoto);
-      fill.style.width = '50%';
       ptext.textContent = 'Uploading...';
 
-      // Convert to base64 for ImgBB API
+      // Convert original file to base64 for ImgBB API (no resize)
       const base64 = await new Promise(resolve => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.readAsDataURL(resized);
+        reader.readAsDataURL(selectedPhoto);
       });
 
       const formData = new FormData();
