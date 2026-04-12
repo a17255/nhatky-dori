@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nhật ký Dori</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,6 +35,8 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .lock-btn:hover{background:var(--pink2)}
 .lock-btn:active{transform:scale(0.97)}
 .lock-error{color:#f85149;font-size:0.85rem;margin-top:12px;min-height:20px}
+.remember-label{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text2);font-size:0.85rem;margin-top:16px;cursor:pointer}
+.remember-label input{accent-color:var(--pink);width:16px;height:16px;cursor:pointer}
 
 /* ── Header ── */
 .header{position:sticky;top:0;z-index:50;background:rgba(13,17,23,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
@@ -111,10 +113,12 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .progress-text{font-size:0.8rem;color:var(--text2);margin-top:6px;text-align:center}
 
 /* ── Lightbox ── */
-#lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s;pointer-events:none;cursor:zoom-out}
-#lightbox.active{opacity:1;pointer-events:auto}
-#lightbox img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px}
-.lightbox-close{position:fixed;top:16px;right:16px;background:rgba(255,255,255,0.15);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.3rem;z-index:201;display:flex;align-items:center;justify-content:center}
+#lightbox{position:fixed;inset:0;background:#000;z-index:9999;display:none}
+#lightbox.active{display:block}
+.lb-toolbar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:flex-end;gap:8px;padding:14px 16px;z-index:10001;background:rgba(0,0,0,0.5)}
+.lb-btn{background:rgba(255,255,255,0.2);color:#fff;border:none;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.lb-btn:hover{background:rgba(255,255,255,0.4)}
+#lightboxImg{position:absolute;transform-origin:center center;cursor:grab;touch-action:none;user-select:none;-webkit-user-drag:none}
 
 /* ── Settings Modal ── */
 .settings-section{margin-bottom:24px}
@@ -126,6 +130,10 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .settings-msg{font-size:0.8rem;margin-top:8px;min-height:18px}
 .settings-msg.ok{color:#3fb950}
 .settings-msg.err{color:#f85149}
+.limits-table{width:100%;font-size:0.82rem;border-collapse:collapse}
+.limits-table td{padding:8px 6px;border-bottom:1px solid var(--border);color:var(--text2)}
+.limits-table td:first-child{color:var(--pink);white-space:nowrap;width:40%}
+.limits-note{font-size:0.75rem;color:var(--text2);margin-top:10px;opacity:0.7;font-style:italic}
 
 /* ── Delete Confirm ── */
 .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;pointer-events:none}
@@ -165,6 +173,7 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
     <h1 class="diary-title">Nhật ký Dori</h1>
     <p class="lock-subtitle">Enter passcode to view the diary</p>
     <input class="lock-input" type="password" id="passcodeInput" placeholder="Passcode" autocomplete="off">
+    <label class="remember-label"><input type="checkbox" id="rememberMe" checked> Remember this device</label>
     <button class="lock-btn" id="unlockBtn">Open Diary</button>
     <div class="lock-error" id="lockError"></div>
   </div>
@@ -246,13 +255,28 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
           <div class="settings-msg" id="passMsg"></div>
         </div>
       </div>
+      <div class="settings-section">
+        <h3>Free Tier Limits</h3>
+        <table class="limits-table">
+          <tr><td>Photos (ImgBB)</td><td>32 MB per image, unlimited uploads</td></tr>
+          <tr><td>Database (Firestore)</td><td>1 GB data · 50K reads/day · 20K writes/day</td></tr>
+          <tr><td>Hosting (GitHub Pages)</td><td>1 GB repo · 100 GB bandwidth/month · 10 builds/hour</td></tr>
+          <tr><td>Photo auto-resize</td><td>Max 1200px, JPEG 85% quality before upload</td></tr>
+        </table>
+        <p class="limits-note">For a family diary, these limits are more than enough.</p>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- Lightbox -->
-<div id="lightbox" onclick="closeLightbox()">
-  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+<div id="lightbox">
+  <div class="lb-toolbar">
+    <button class="lb-btn" id="lbZoomIn" title="Zoom in">&#43;</button>
+    <button class="lb-btn" id="lbZoomOut" title="Zoom out">&#8722;</button>
+    <button class="lb-btn" id="lbRotate" title="Rotate">&#8635;</button>
+    <button class="lb-btn" id="lbClose" title="Close">&#10005;</button>
+  </div>
   <img id="lightboxImg" src="" alt="">
 </div>
 
@@ -336,20 +360,33 @@ async function loadPasscodeHash() {
 document.getElementById('passcodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
 document.getElementById('unlockBtn').addEventListener('click', unlock);
 
+function enterApp() {
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  loadEntries();
+}
+
 async function unlock() {
   const input = document.getElementById('passcodeInput').value;
   if (!input) return;
   const hash = await sha256(input);
   if (hash === passcodeHash) {
-    document.getElementById('lockScreen').style.display = 'none';
-    document.getElementById('app').style.display = '';
-    loadEntries();
+    if (document.getElementById('rememberMe').checked) {
+      localStorage.setItem('dori_auth', hash);
+    }
+    enterApp();
   } else {
     const err = document.getElementById('lockError');
     err.textContent = 'Wrong passcode';
     document.getElementById('passcodeInput').value = '';
     setTimeout(() => err.textContent = '', 2000);
   }
+}
+
+// Auto-unlock if this device was remembered
+async function tryAutoUnlock() {
+  const saved = localStorage.getItem('dori_auth');
+  if (saved && saved === passcodeHash) enterApp();
 }
 
 async function changePasscode() {
@@ -363,6 +400,7 @@ async function changePasscode() {
   const newHash = await sha256(newP);
   await db.collection('settings').doc('passcode').set({ hash: newHash });
   passcodeHash = newHash;
+  localStorage.setItem('dori_auth', newHash);
   msg.className = 'settings-msg ok'; msg.textContent = 'Passcode updated!';
   document.getElementById('currentPass').value = '';
   document.getElementById('newPass').value = '';
@@ -482,7 +520,7 @@ async function saveEntry() {
       const resp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
       const result = await resp.json();
       if (!result.success) throw new Error('Photo upload failed');
-      photoURL = result.data.display_url;
+      photoURL = result.data.image?.url || result.data.display_url;
       fill.style.width = '100%';
       ptext.textContent = 'Done!';
     }
@@ -572,7 +610,7 @@ function renderTimeline() {
       <div class="entry-date">${formatDate(entry.date)}</div>`;
 
     if (entry.photoURL) {
-      html += `<img class="entry-photo" src="${entry.photoURL}" alt="diary photo" loading="lazy" onclick="openLightbox('${entry.photoURL}')">`;
+      html += `<img class="entry-photo" src="${entry.photoURL}" alt="diary photo" loading="lazy" data-full="${entry.photoURL}">`;
     }
 
     if (entry.text) {
@@ -596,20 +634,174 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-/* ── Lightbox ── */
+/* ── Lightbox: full-screen image viewer ── */
+const lbEl = document.getElementById('lightbox');
+const lbImg = document.getElementById('lightboxImg');
+let lbZoom = 1, lbRot = 0, lbPanX = 0, lbPanY = 0;
+let lbBaseW = 0, lbBaseH = 0, lbBaseL = 0, lbBaseT = 0;
+// touch state
+let lbTouchDist0 = 0, lbTouchZoom0 = 1, lbTouchPanning = false;
+let lbTouchSX = 0, lbTouchSY = 0, lbPanX0 = 0, lbPanY0 = 0, lbLastTap = 0;
+// mouse drag state
+let lbDragging = false, lbDragSX = 0, lbDragSY = 0, lbDragPX0 = 0, lbDragPY0 = 0;
+
+function lbLayout() {
+  // Calculate image size to fill screen, respecting aspect ratio and rotation
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const nw = lbImg.naturalWidth, nh = lbImg.naturalHeight;
+  if (!nw || !nh) return;
+
+  // After rotation, effective dimensions swap for 90/270
+  const swapped = (lbRot % 180 !== 0);
+  const ew = swapped ? nh : nw;
+  const eh = swapped ? nw : nh;
+
+  const ratio = Math.min(vw / ew, vh / eh);
+  const w = Math.round(ew * ratio);
+  const h = Math.round(eh * ratio);
+
+  lbBaseW = w; lbBaseH = h;
+  lbBaseL = Math.round((vw - w) / 2);
+  lbBaseT = Math.round((vh - h) / 2);
+
+  // Set the actual image element size (pre-rotation natural dims scaled)
+  const imgDispW = swapped ? Math.round(nh * ratio) : Math.round(nw * ratio);
+  const imgDispH = swapped ? Math.round(nw * ratio) : Math.round(nh * ratio);
+
+  lbImg.style.width = imgDispW + 'px';
+  lbImg.style.height = imgDispH + 'px';
+
+  // Center the image element, then apply rotation + zoom + pan
+  const imgL = Math.round((vw - imgDispW) / 2);
+  const imgT = Math.round((vh - imgDispH) / 2);
+  lbImg.style.left = imgL + 'px';
+  lbImg.style.top = imgT + 'px';
+}
+
+function lbApplyTransform(animate) {
+  lbImg.style.transition = animate ? 'transform .2s ease-out' : 'none';
+  lbImg.style.transform = `rotate(${lbRot}deg) scale(${lbZoom}) translate(${lbPanX}px, ${lbPanY}px)`;
+}
+
+function lbResetView(animate) {
+  lbZoom = 1; lbPanX = 0; lbPanY = 0;
+  lbLayout();
+  lbApplyTransform(animate);
+}
+
 function openLightbox(url) {
-  document.getElementById('lightboxImg').src = url;
-  document.getElementById('lightbox').classList.add('active');
+  lbZoom = 1; lbRot = 0; lbPanX = 0; lbPanY = 0;
+  lbImg.src = url;
+  lbEl.classList.add('active');
   document.body.style.overflow = 'hidden';
+  lbImg.onload = () => { lbLayout(); lbApplyTransform(false); };
 }
 
 function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('active');
+  lbEl.classList.remove('active');
   document.body.style.overflow = '';
 }
 
+// Window resize → refit
+window.addEventListener('resize', () => { if (lbEl.classList.contains('active')) { lbLayout(); lbApplyTransform(false); } });
+
+// Click photo in timeline → open lightbox
+document.getElementById('timeline').addEventListener('click', e => {
+  const img = e.target.closest('.entry-photo');
+  if (img && img.dataset.full) openLightbox(img.dataset.full);
+});
+
+// Toolbar
+document.getElementById('lbClose').onclick = closeLightbox;
+document.getElementById('lbZoomIn').onclick = () => { lbZoom = Math.min(6, lbZoom * 1.5); lbApplyTransform(true); };
+document.getElementById('lbZoomOut').onclick = () => { lbZoom = Math.max(1, lbZoom / 1.5); if (lbZoom <= 1) lbResetView(true); else lbApplyTransform(true); };
+document.getElementById('lbRotate').onclick = () => { lbRot = (lbRot + 90) % 360; lbPanX = 0; lbPanY = 0; lbZoom = 1; lbLayout(); lbApplyTransform(true); };
+
+// Click black area → close (not when zoomed or dragging)
+lbEl.addEventListener('click', e => {
+  if (e.target === lbEl && lbZoom <= 1.05 && !lbDragging) closeLightbox();
+});
+
+// ── Desktop: mouse wheel zoom ──
+lbEl.addEventListener('wheel', e => {
+  e.preventDefault();
+  // scroll UP = zoom in, scroll DOWN = zoom out
+  const factor = e.deltaY < 0 ? 1.15 : 0.85;
+  lbZoom = Math.max(1, Math.min(6, lbZoom * factor));
+  if (lbZoom <= 1) lbResetView(true); else lbApplyTransform(true);
+}, { passive: false });
+
+// ── Desktop: drag to pan when zoomed ──
+lbImg.addEventListener('mousedown', e => {
+  if (lbZoom <= 1.05) return;
+  e.preventDefault();
+  lbDragging = true;
+  lbDragSX = e.clientX; lbDragSY = e.clientY;
+  lbDragPX0 = lbPanX; lbDragPY0 = lbPanY;
+  lbImg.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', e => {
+  if (!lbDragging) return;
+  lbPanX = lbDragPX0 + (e.clientX - lbDragSX) / lbZoom;
+  lbPanY = lbDragPY0 + (e.clientY - lbDragSY) / lbZoom;
+  lbApplyTransform(false);
+});
+window.addEventListener('mouseup', () => {
+  if (lbDragging) { lbDragging = false; lbImg.style.cursor = 'grab'; }
+});
+
+// ── Desktop: double-click to toggle zoom ──
+lbImg.addEventListener('dblclick', e => {
+  e.preventDefault();
+  if (lbZoom > 1.1) lbResetView(true);
+  else { lbZoom = 3; lbPanX = 0; lbPanY = 0; lbApplyTransform(true); }
+});
+
+// ── Phone: pinch zoom + double-tap + pan ──
+function tDist(t) { const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
+
+lbImg.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    lbTouchDist0 = tDist(e.touches);
+    lbTouchZoom0 = lbZoom;
+  } else if (e.touches.length === 1) {
+    const now = Date.now();
+    if (now - lbLastTap < 300) {
+      e.preventDefault();
+      if (lbZoom > 1.1) lbResetView(true);
+      else { lbZoom = 3; lbPanX = 0; lbPanY = 0; lbApplyTransform(true); }
+      lbLastTap = 0; return;
+    }
+    lbLastTap = now;
+    lbTouchPanning = true;
+    lbTouchSX = e.touches[0].clientX; lbTouchSY = e.touches[0].clientY;
+    lbPanX0 = lbPanX; lbPanY0 = lbPanY;
+  }
+}, { passive: false });
+
+lbImg.addEventListener('touchmove', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const d = tDist(e.touches);
+    lbZoom = Math.max(1, Math.min(6, lbTouchZoom0 * (d / lbTouchDist0)));
+    lbApplyTransform(false);
+  } else if (e.touches.length === 1 && lbTouchPanning && lbZoom > 1.05) {
+    e.preventDefault();
+    lbPanX = lbPanX0 + (e.touches[0].clientX - lbTouchSX) / lbZoom;
+    lbPanY = lbPanY0 + (e.touches[0].clientY - lbTouchSY) / lbZoom;
+    lbApplyTransform(false);
+  }
+}, { passive: false });
+
+lbImg.addEventListener('touchend', () => {
+  lbTouchPanning = false;
+  if (lbZoom < 1) lbResetView(true);
+});
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (lbZoom > 1.1) { lbResetView(true); return; }
     closeLightbox();
     closeAddModal();
     closeSettings();
@@ -630,7 +822,7 @@ function closeSettings() {
 }
 
 /* ── Init ── */
-loadPasscodeHash();
+loadPasscodeHash().then(() => tryAutoUnlock());
 document.getElementById('passcodeInput').focus();
 </script>
 </body>
