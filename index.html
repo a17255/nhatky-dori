@@ -11,20 +11,36 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2129;--border:#30363d;
+  --bg:#0b0e1a;--bg2:#131729;--bg3:#1a1f35;--border:#2a2f4a;
   --text:#e6edf3;--text2:#8b949e;
-  --pink:#f4a6c1;--pink2:#d4789b;--pink-bg:rgba(244,166,193,0.1);
-  --coral:#ff8fab;--blue:#b8d4e3;
+  --pink:#f4a6c1;--pink2:#d4789b;--pink-bg:rgba(244,166,193,0.08);
+  --coral:#ff8fab;--blue:#b8d4e3;--purple:#c4b5fd;
   --radius:16px;--radius-sm:10px;
 }
 html{scroll-behavior:smooth}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(100,60,120,0.15),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(60,80,140,0.12),transparent 50%),radial-gradient(ellipse at 50% 80%,rgba(120,50,80,0.1),transparent 50%);pointer-events:none;z-index:0}
+
+/* ── Floating Particles ── */
+.particles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.particle{position:absolute;opacity:0;animation:floatUp linear infinite}
+.particle.heart{color:#f4a6c1;font-size:14px}
+.particle.star{color:#c4b5fd;font-size:10px}
+.particle.sparkle{color:#ffd700;font-size:8px}
+@keyframes floatUp{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:0.6}90%{opacity:0.4}100%{transform:translateY(-10vh) rotate(360deg);opacity:0}}
+
+/* ── Music Button ── */
+.music-btn{background:none;border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .3s;position:relative}
+.music-btn:hover{border-color:var(--pink);color:var(--pink)}
+.music-btn.playing{border-color:var(--pink);color:var(--pink);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(244,166,193,0)}50%{box-shadow:0 0 12px 4px rgba(244,166,193,0.3)}}
 .diary-title{font-family:'Dancing Script',cursive;color:var(--pink)}
 input,textarea,button,select{font-family:inherit;font-size:inherit}
 
 /* ── Lock Screen ── */
 #lockScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
-.lock-card{text-align:center;padding:40px 32px;max-width:340px;width:90%}
+#lockScreen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(244,166,193,0.08),transparent 60%),radial-gradient(ellipse at 30% 70%,rgba(100,60,160,0.1),transparent 50%);pointer-events:none}
+.lock-card{text-align:center;padding:40px 32px;max-width:340px;width:90%;position:relative;z-index:1}
 .lock-card .diary-title{font-size:3rem;margin-bottom:8px}
 .lock-subtitle{color:var(--text2);margin-bottom:32px;font-size:0.95rem}
 .lock-stars{font-size:1.5rem;margin-bottom:24px;letter-spacing:4px}
@@ -95,9 +111,9 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 @media(max-width:480px){.timeline-line::before{left:16px}}
 
 /* ── Entry Card ── */
-.entry-card{position:relative;margin-left:44px;margin-bottom:28px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s}
+.entry-card{position:relative;margin-left:44px;margin-bottom:28px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all .3s;backdrop-filter:blur(4px)}
 @media(max-width:480px){.entry-card{margin-left:36px}}
-.entry-card:hover{border-color:var(--pink)}
+.entry-card:hover{border-color:var(--pink);box-shadow:0 4px 20px rgba(244,166,193,0.1)}
 .entry-dot{position:absolute;left:-32px;top:24px;width:12px;height:12px;background:var(--pink);border-radius:50%;border:2px solid var(--bg);z-index:2}
 @media(max-width:480px){.entry-dot{left:-28px;width:10px;height:10px}}
 .entry-date{padding:14px 18px 0;font-size:0.85rem;color:var(--pink);font-weight:600;letter-spacing:0.3px}
@@ -219,6 +235,9 @@ body.admin-mode .admin-only{display:flex!important}
 </head>
 <body>
 
+<!-- Floating Particles -->
+<div class="particles" id="particles"></div>
+
 <!-- Lock Screen -->
 <div id="lockScreen">
   <div class="lock-card">
@@ -243,6 +262,7 @@ body.admin-mode .admin-only{display:flex!important}
         <button class="grid-btn" onclick="setGrid(3)" title="3 columns">&#9638;&#9638;&#9638;</button>
       </div>
       <button id="adminToggleBtn" class="admin-enter-btn" onclick="toggleAdmin()">Admin</button>
+      <button class="music-btn" id="musicBtn" onclick="toggleMusic()" title="Music">&#9835;</button>
       <button class="settings-btn" onclick="openSettings()" title="Settings">&#9881;</button>
     </div>
   </header>
@@ -1181,7 +1201,101 @@ function openReminderForm() {
     .catch(e => toast('Error: ' + e.message));
 }
 
+/* ── Floating Particles ── */
+function createParticles() {
+  const container = document.getElementById('particles');
+  const types = [
+    { cls: 'heart', chars: ['\u2665','\u2764','\u2661'], weight: 3 },
+    { cls: 'star', chars: ['\u2726','\u2727','\u2728','\u2606'], weight: 4 },
+    { cls: 'sparkle', chars: ['\u2022','\u00b7','\u2219'], weight: 2 }
+  ];
+  for (let i = 0; i < 35; i++) {
+    const el = document.createElement('span');
+    const pick = types[Math.random() < 0.4 ? 0 : Math.random() < 0.7 ? 1 : 2];
+    el.className = 'particle ' + pick.cls;
+    el.textContent = pick.chars[Math.floor(Math.random() * pick.chars.length)];
+    el.style.left = Math.random() * 100 + '%';
+    el.style.animationDuration = (12 + Math.random() * 20) + 's';
+    el.style.animationDelay = (Math.random() * 15) + 's';
+    el.style.fontSize = (8 + Math.random() * 12) + 'px';
+    container.appendChild(el);
+  }
+}
+
+/* ── Background Music ── */
+let musicAudio = null;
+let musicPlaying = false;
+
+function initMusic() {
+  // Free lullaby from a royalty-free source (Web Audio API generated)
+  const actx = new (window.AudioContext || window.webkitAudioContext)();
+  const notes = [
+    // Twinkle Twinkle Little Star melody (lullaby feel)
+    {f:523,d:0.5},{f:523,d:0.5},{f:784,d:0.5},{f:784,d:0.5},
+    {f:880,d:0.5},{f:880,d:0.5},{f:784,d:1},
+    {f:698,d:0.5},{f:698,d:0.5},{f:659,d:0.5},{f:659,d:0.5},
+    {f:587,d:0.5},{f:587,d:0.5},{f:523,d:1},
+    {f:784,d:0.5},{f:784,d:0.5},{f:698,d:0.5},{f:698,d:0.5},
+    {f:659,d:0.5},{f:659,d:0.5},{f:587,d:1},
+    {f:784,d:0.5},{f:784,d:0.5},{f:698,d:0.5},{f:698,d:0.5},
+    {f:659,d:0.5},{f:659,d:0.5},{f:587,d:1},
+    {f:523,d:0.5},{f:523,d:0.5},{f:784,d:0.5},{f:784,d:0.5},
+    {f:880,d:0.5},{f:880,d:0.5},{f:784,d:1},
+    {f:698,d:0.5},{f:698,d:0.5},{f:659,d:0.5},{f:659,d:0.5},
+    {f:587,d:0.5},{f:587,d:0.5},{f:523,d:1}
+  ];
+
+  function playMelody(startTime) {
+    let t = startTime;
+    const tempo = 0.45;
+    notes.forEach(n => {
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = n.f;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.06, t + 0.05);
+      gain.gain.linearRampToValueAtTime(0.04, t + n.d * tempo * 0.7);
+      gain.gain.linearRampToValueAtTime(0, t + n.d * tempo);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start(t);
+      osc.stop(t + n.d * tempo + 0.05);
+      t += n.d * tempo;
+    });
+    return t;
+  }
+
+  musicAudio = { actx, playMelody, loopId: null };
+}
+
+function toggleMusic() {
+  const btn = document.getElementById('musicBtn');
+  if (!musicAudio) initMusic();
+
+  if (musicPlaying) {
+    musicPlaying = false;
+    btn.classList.remove('playing');
+    if (musicAudio.actx.state === 'running') musicAudio.actx.suspend();
+  } else {
+    musicPlaying = true;
+    btn.classList.add('playing');
+    if (musicAudio.actx.state === 'suspended') {
+      musicAudio.actx.resume();
+    } else {
+      function loopPlay() {
+        if (!musicPlaying) return;
+        const end = musicAudio.playMelody(musicAudio.actx.currentTime + 0.1);
+        const dur = (end - musicAudio.actx.currentTime) * 1000 + 500;
+        musicAudio.loopId = setTimeout(loopPlay, dur);
+      }
+      loopPlay();
+    }
+  }
+}
+
 /* ── Init ── */
+createParticles();
 loadPasscodeHash().then(() => tryAutoUnlock());
 document.getElementById('passcodeInput').focus();
 </script>
