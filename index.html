@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nhật ký Dori</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2129;--border:#30363d;
+  --text:#e6edf3;--text2:#8b949e;
+  --pink:#f4a6c1;--pink2:#d4789b;--pink-bg:rgba(244,166,193,0.1);
+  --coral:#ff8fab;--blue:#b8d4e3;
+  --radius:16px;--radius-sm:10px;
+}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-tap-highlight-color:transparent}
+.diary-title{font-family:'Dancing Script',cursive;color:var(--pink)}
+input,textarea,button,select{font-family:inherit;font-size:inherit}
+
+/* ── Lock Screen ── */
+#lockScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
+.lock-card{text-align:center;padding:40px 32px;max-width:340px;width:90%}
+.lock-card .diary-title{font-size:3rem;margin-bottom:8px}
+.lock-subtitle{color:var(--text2);margin-bottom:32px;font-size:0.95rem}
+.lock-stars{font-size:1.5rem;margin-bottom:24px;letter-spacing:4px}
+.lock-input{width:100%;padding:14px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:1.1rem;text-align:center;outline:none;letter-spacing:4px;transition:border-color .2s}
+.lock-input:focus{border-color:var(--pink)}
+.lock-input::placeholder{letter-spacing:0;color:var(--text2);font-size:0.95rem}
+.lock-btn{width:100%;padding:14px;margin-top:16px;background:var(--pink);color:var(--bg);border:none;border-radius:var(--radius-sm);font-size:1.05rem;font-weight:600;cursor:pointer;transition:background .2s,transform .1s}
+.lock-btn:hover{background:var(--pink2)}
+.lock-btn:active{transform:scale(0.97)}
+.lock-error{color:#f85149;font-size:0.85rem;margin-top:12px;min-height:20px}
+
+/* ── Header ── */
+.header{position:sticky;top:0;z-index:50;background:rgba(13,17,23,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.header .diary-title{font-size:1.8rem}
+.header-right{display:flex;gap:8px;align-items:center}
+
+/* ── Floating Add Button ── */
+.fab{position:fixed;bottom:28px;right:28px;width:60px;height:60px;border-radius:50%;background:var(--pink);color:var(--bg);border:none;font-size:2rem;cursor:pointer;box-shadow:0 4px 20px rgba(244,166,193,0.4);transition:transform .2s,box-shadow .2s;z-index:40;display:flex;align-items:center;justify-content:center;line-height:1}
+.fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(244,166,193,0.5)}
+.fab:active{transform:scale(0.95)}
+
+/* ── Settings Button ── */
+.settings-btn{background:none;border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:border-color .2s,color .2s}
+.settings-btn:hover{border-color:var(--pink);color:var(--pink)}
+
+/* ── Timeline ── */
+.timeline{max-width:600px;margin:0 auto;padding:20px 16px 100px}
+.timeline-line{position:relative}
+.timeline-line::before{content:'';position:absolute;left:20px;top:0;bottom:0;width:2px;background:var(--border)}
+@media(max-width:480px){.timeline-line::before{left:16px}}
+
+/* ── Entry Card ── */
+.entry-card{position:relative;margin-left:44px;margin-bottom:28px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s}
+@media(max-width:480px){.entry-card{margin-left:36px}}
+.entry-card:hover{border-color:var(--pink)}
+.entry-dot{position:absolute;left:-32px;top:24px;width:12px;height:12px;background:var(--pink);border-radius:50%;border:2px solid var(--bg);z-index:2}
+@media(max-width:480px){.entry-dot{left:-28px;width:10px;height:10px}}
+.entry-date{padding:14px 18px 0;font-size:0.85rem;color:var(--pink);font-weight:600;letter-spacing:0.3px}
+.entry-photo{width:100%;cursor:pointer;display:block;margin-top:12px;max-height:500px;object-fit:cover}
+.entry-text{padding:14px 18px 16px;font-size:0.95rem;line-height:1.65;color:var(--text);white-space:pre-wrap}
+.entry-text:empty{display:none}
+.entry-actions{padding:0 18px 12px;display:flex;gap:12px}
+.entry-action-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.8rem;padding:4px 8px;border-radius:6px;transition:color .2s,background .2s}
+.entry-action-btn:hover{color:var(--pink);background:var(--pink-bg)}
+
+/* ── Empty State ── */
+.empty-state{text-align:center;padding:80px 20px;color:var(--text2)}
+.empty-state .icon{font-size:4rem;margin-bottom:16px}
+.empty-state h2{font-family:'Dancing Script',cursive;color:var(--pink);font-size:1.8rem;margin-bottom:8px}
+.empty-state p{font-size:0.95rem;max-width:280px;margin:0 auto}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .25s;pointer-events:none}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-content{background:var(--bg2);border-radius:var(--radius) var(--radius) 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s ease}
+.modal-overlay.active .modal-content{transform:translateY(0)}
+@media(min-width:600px){.modal-content{border-radius:var(--radius);margin-bottom:20px;max-height:85vh}.modal-overlay{align-items:center}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 0;position:sticky;top:0;background:var(--bg2);z-index:2}
+.modal-header h2{font-family:'Dancing Script',cursive;color:var(--pink);font-size:1.5rem}
+.modal-close{background:none;border:none;color:var(--text2);font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:color .2s}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:20px}
+.form-group{margin-bottom:20px}
+.form-label{display:block;font-size:0.85rem;color:var(--text2);margin-bottom:8px;font-weight:500}
+.form-input,.form-textarea{width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:1rem;outline:none;transition:border-color .2s}
+.form-input:focus,.form-textarea:focus{border-color:var(--pink)}
+.form-textarea{min-height:120px;resize:vertical;line-height:1.6}
+.photo-upload{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative}
+.photo-upload:hover{border-color:var(--pink);background:var(--pink-bg)}
+.photo-upload.has-photo{border-style:solid;padding:0;overflow:hidden}
+.photo-upload input[type="file"]{display:none}
+.photo-upload .upload-icon{font-size:2rem;margin-bottom:8px}
+.photo-upload .upload-text{color:var(--text2);font-size:0.9rem}
+.photo-upload .upload-hint{color:var(--text2);font-size:0.75rem;margin-top:4px;opacity:0.7}
+.photo-preview{width:100%;max-height:300px;object-fit:cover;display:block;border-radius:var(--radius-sm)}
+.photo-remove{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
+.submit-btn{width:100%;padding:14px;background:var(--pink);color:var(--bg);border:none;border-radius:var(--radius-sm);font-size:1.05rem;font-weight:600;cursor:pointer;transition:background .2s,transform .1s}
+.submit-btn:hover{background:var(--pink2)}
+.submit-btn:active{transform:scale(0.97)}
+.submit-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.upload-progress{margin-top:12px;display:none}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:var(--pink);border-radius:3px;width:0%;transition:width .3s}
+.progress-text{font-size:0.8rem;color:var(--text2);margin-top:6px;text-align:center}
+
+/* ── Lightbox ── */
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s;pointer-events:none;cursor:zoom-out}
+#lightbox.active{opacity:1;pointer-events:auto}
+#lightbox img{max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px}
+.lightbox-close{position:fixed;top:16px;right:16px;background:rgba(255,255,255,0.15);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.3rem;z-index:201;display:flex;align-items:center;justify-content:center}
+
+/* ── Settings Modal ── */
+.settings-section{margin-bottom:24px}
+.settings-section h3{font-size:0.9rem;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+.settings-row{display:flex;gap:10px;align-items:flex-end}
+.settings-row .form-input{flex:1}
+.settings-small-btn{padding:12px 20px;background:var(--pink);color:var(--bg);border:none;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;white-space:nowrap;transition:background .2s}
+.settings-small-btn:hover{background:var(--pink2)}
+.settings-msg{font-size:0.8rem;margin-top:8px;min-height:18px}
+.settings-msg.ok{color:#3fb950}
+.settings-msg.err{color:#f85149}
+
+/* ── Delete Confirm ── */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;pointer-events:none}
+.confirm-overlay.active{opacity:1;pointer-events:auto}
+.confirm-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:320px;width:90%;text-align:center}
+.confirm-box p{margin-bottom:20px;line-height:1.5}
+.confirm-btns{display:flex;gap:10px;justify-content:center}
+.confirm-btns button{padding:10px 24px;border:none;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;transition:background .2s}
+.btn-cancel{background:var(--bg3);color:var(--text)}
+.btn-cancel:hover{background:var(--border)}
+.btn-danger{background:#da3633;color:#fff}
+.btn-danger:hover{background:#f85149}
+
+/* ── Loading Spinner ── */
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--pink);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-state{text-align:center;padding:40px;color:var(--text2)}
+.loading-state .spinner{width:32px;height:32px;border-width:3px;margin-bottom:12px}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:12px 24px;border-radius:var(--radius-sm);font-size:0.9rem;opacity:0;transition:opacity .3s,transform .3s;z-index:500;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Year Separator ── */
+.year-separator{text-align:center;padding:20px 0 16px;position:relative}
+.year-separator span{background:var(--bg);padding:0 16px;font-size:0.8rem;color:var(--text2);text-transform:uppercase;letter-spacing:2px;position:relative;z-index:1}
+.year-separator::after{content:'';position:absolute;left:44px;right:0;top:50%;height:1px;background:var(--border)}
+@media(max-width:480px){.year-separator::after{left:36px}}
+</style>
+</head>
+<body>
+
+<!-- Lock Screen -->
+<div id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-stars">✦ ✦ ✦</div>
+    <h1 class="diary-title">Nhật ký Dori</h1>
+    <p class="lock-subtitle">Enter passcode to view the diary</p>
+    <input class="lock-input" type="password" id="passcodeInput" placeholder="Passcode" autocomplete="off">
+    <button class="lock-btn" id="unlockBtn">Open Diary</button>
+    <div class="lock-error" id="lockError"></div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app" style="display:none">
+  <header class="header">
+    <h1 class="diary-title">Nhật ký Dori</h1>
+    <div class="header-right">
+      <button class="settings-btn" onclick="openSettings()" title="Settings">&#9881;</button>
+    </div>
+  </header>
+  <main class="timeline" id="timeline">
+    <div class="loading-state" id="loadingState">
+      <div class="spinner"></div>
+      <p>Loading diary...</p>
+    </div>
+  </main>
+  <button class="fab" onclick="openAddModal()" title="Add new entry">+</button>
+</div>
+
+<!-- Add/Edit Entry Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">New Entry</h2>
+      <button class="modal-close" onclick="closeAddModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" type="date" id="entryDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Photo</label>
+        <input type="file" id="photoFile" accept="image/*" style="display:none">
+        <div class="photo-upload" id="photoUpload" onclick="document.getElementById('photoFile').click()">
+          <div id="uploadPlaceholder">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">Tap to add a photo</div>
+            <div class="upload-hint">From gallery or camera</div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Write something</label>
+        <textarea class="form-textarea" id="entryText" placeholder="What happened today..."></textarea>
+      </div>
+      <div class="upload-progress" id="uploadProgress">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-text" id="progressText">Uploading...</div>
+      </div>
+      <button class="submit-btn" id="submitBtn" onclick="saveEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Settings</h2>
+      <button class="modal-close" onclick="closeSettings()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <h3>Change Passcode</h3>
+        <div class="form-group">
+          <label class="form-label">Current passcode</label>
+          <input class="form-input" type="password" id="currentPass" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New passcode</label>
+          <div class="settings-row">
+            <input class="form-input" type="password" id="newPass" autocomplete="off">
+            <button class="settings-small-btn" onclick="changePasscode()">Update</button>
+          </div>
+          <div class="settings-msg" id="passMsg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<!-- Delete Confirm -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p>Delete this entry? This cannot be undone.</p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-danger" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK (Firestore only — photos use ImgBB) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+/* ── Firebase Init ── */
+firebase.initializeApp({
+  apiKey: "AIzaSyDi4gSYRED3xRaKEDmqP-kC2eIkETsGb54",
+  authDomain: "nhatki-dori.firebaseapp.com",
+  projectId: "nhatki-dori",
+  storageBucket: "nhatki-dori.firebasestorage.app",
+  messagingSenderId: "751913346909",
+  appId: "1:751913346909:web:24ee1036ee7fe2fb7e2ab4",
+  measurementId: "G-EVM0PLJBM0"
+});
+const db = firebase.firestore();
+
+/* ── ImgBB Config ── */
+const IMGBB_API_KEY = '6db6c71225cd8904266034266316c087';
+
+/* ── State ── */
+let entries = [];
+let editingId = null;
+let selectedPhoto = null;
+let deleteTargetId = null;
+
+// Default passcode hash (passcode: "28032024")
+const DEFAULT_HASH = '061ae51a1848dd56ef78e22437c8e70ab865d75b31dc70e6bc9f63de6f755dbf';
+let passcodeHash = DEFAULT_HASH;
+
+/* ── Utility ── */
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+/* ── Passcode ── */
+async function loadPasscodeHash() {
+  try {
+    const doc = await db.collection('settings').doc('passcode').get();
+    if (doc.exists && doc.data().hash) passcodeHash = doc.data().hash;
+  } catch(e) { /* use default */ }
+}
+
+document.getElementById('passcodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+document.getElementById('unlockBtn').addEventListener('click', unlock);
+
+async function unlock() {
+  const input = document.getElementById('passcodeInput').value;
+  if (!input) return;
+  const hash = await sha256(input);
+  if (hash === passcodeHash) {
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    loadEntries();
+  } else {
+    const err = document.getElementById('lockError');
+    err.textContent = 'Wrong passcode';
+    document.getElementById('passcodeInput').value = '';
+    setTimeout(() => err.textContent = '', 2000);
+  }
+}
+
+async function changePasscode() {
+  const curr = document.getElementById('currentPass').value;
+  const newP = document.getElementById('newPass').value;
+  const msg = document.getElementById('passMsg');
+  if (!curr || !newP) { msg.className = 'settings-msg err'; msg.textContent = 'Fill in both fields'; return; }
+  if (newP.length < 3) { msg.className = 'settings-msg err'; msg.textContent = 'Too short (min 3 chars)'; return; }
+  const currHash = await sha256(curr);
+  if (currHash !== passcodeHash) { msg.className = 'settings-msg err'; msg.textContent = 'Current passcode is wrong'; return; }
+  const newHash = await sha256(newP);
+  await db.collection('settings').doc('passcode').set({ hash: newHash });
+  passcodeHash = newHash;
+  msg.className = 'settings-msg ok'; msg.textContent = 'Passcode updated!';
+  document.getElementById('currentPass').value = '';
+  document.getElementById('newPass').value = '';
+  setTimeout(() => msg.textContent = '', 3000);
+}
+
+/* ── Resize Image ── */
+function resizeImage(file, maxDim = 1200) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w <= maxDim && h <= maxDim) { resolve(file); return; }
+        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+        else { w = Math.round(w * maxDim / h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.85);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ── Photo Upload UI ── */
+const photoFile = document.getElementById('photoFile');
+const photoUpload = document.getElementById('photoUpload');
+
+photoFile.addEventListener('change', () => {
+  const file = photoFile.files[0];
+  if (!file) return;
+  selectedPhoto = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    photoUpload.classList.add('has-photo');
+    photoUpload.innerHTML = `<img class="photo-preview" src="${e.target.result}" alt="preview"><button class="photo-remove" onclick="event.stopPropagation();removePhoto()">&times;</button>`;
+  };
+  reader.readAsDataURL(file);
+});
+
+function removePhoto() {
+  selectedPhoto = null;
+  photoFile.value = '';
+  photoUpload.classList.remove('has-photo');
+  photoUpload.innerHTML = `<div id="uploadPlaceholder"><div class="upload-icon">📷</div><div class="upload-text">Tap to add a photo</div><div class="upload-hint">From gallery or camera</div></div>`;
+}
+
+/* ── Add/Edit Modal ── */
+function openAddModal(id) {
+  editingId = id || null;
+  document.getElementById('modalTitle').textContent = id ? 'Edit Entry' : 'New Entry';
+  document.getElementById('entryDate').value = todayStr();
+  document.getElementById('entryText').value = '';
+  removePhoto();
+  if (id) {
+    const entry = entries.find(e => e.id === id);
+    if (entry) {
+      document.getElementById('entryDate').value = entry.date;
+      document.getElementById('entryText').value = entry.text || '';
+      if (entry.photoURL) {
+        photoUpload.classList.add('has-photo');
+        photoUpload.innerHTML = `<img class="photo-preview" src="${entry.photoURL}" alt="preview"><button class="photo-remove" onclick="event.stopPropagation();removePhoto()">&times;</button>`;
+      }
+    }
+  }
+  document.getElementById('uploadProgress').style.display = 'none';
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('addModal').classList.add('active');
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('active');
+  editingId = null;
+}
+
+/* ── Save Entry ── */
+async function saveEntry() {
+  const date = document.getElementById('entryDate').value;
+  const text = document.getElementById('entryText').value.trim();
+  if (!date) { toast('Please pick a date'); return; }
+  if (!text && !selectedPhoto && !editingId) { toast('Add a photo or some text'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    let photoURL = editingId ? (entries.find(e => e.id === editingId)?.photoURL || '') : '';
+
+    // Upload new photo to ImgBB if selected
+    if (selectedPhoto) {
+      document.getElementById('uploadProgress').style.display = '';
+      const fill = document.getElementById('progressFill');
+      const ptext = document.getElementById('progressText');
+      fill.style.width = '30%';
+      ptext.textContent = 'Resizing...';
+
+      const resized = await resizeImage(selectedPhoto);
+      fill.style.width = '50%';
+      ptext.textContent = 'Uploading...';
+
+      // Convert to base64 for ImgBB API
+      const base64 = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(resized);
+      });
+
+      const formData = new FormData();
+      formData.append('key', IMGBB_API_KEY);
+      formData.append('image', base64);
+
+      const resp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+      const result = await resp.json();
+      if (!result.success) throw new Error('Photo upload failed');
+      photoURL = result.data.display_url;
+      fill.style.width = '100%';
+      ptext.textContent = 'Done!';
+    }
+
+    const data = { date, text, photoURL, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+
+    if (editingId) {
+      await db.collection('entries').doc(editingId).update(data);
+      toast('Entry updated!');
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection('entries').add(data);
+      toast('Entry saved!');
+    }
+
+    closeAddModal();
+    loadEntries();
+  } catch (err) {
+    console.error(err);
+    toast('Error: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Save Entry';
+  }
+}
+
+/* ── Delete Entry ── */
+function confirmDelete(id) {
+  deleteTargetId = id;
+  document.getElementById('confirmOverlay').classList.add('active');
+  document.getElementById('confirmDeleteBtn').onclick = async () => {
+    try {
+      await db.collection('entries').doc(id).delete();
+      closeConfirm();
+      toast('Entry deleted');
+      loadEntries();
+    } catch(err) {
+      toast('Error: ' + err.message);
+    }
+  };
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+  deleteTargetId = null;
+}
+
+/* ── Load & Render Entries ── */
+async function loadEntries() {
+  const timeline = document.getElementById('timeline');
+  document.getElementById('loadingState').style.display = '';
+
+  try {
+    const snap = await db.collection('entries').orderBy('date', 'desc').get();
+    entries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTimeline();
+  } catch(err) {
+    console.error(err);
+    timeline.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><h2>Connection Error</h2><p>${err.message}</p></div>`;
+  }
+}
+
+function renderTimeline() {
+  const timeline = document.getElementById('timeline');
+
+  if (entries.length === 0) {
+    timeline.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📖</div>
+        <h2>Start Dori's Diary</h2>
+        <p>Tap the + button to add the first entry!</p>
+      </div>`;
+    return;
+  }
+
+  let html = '<div class="timeline-line">';
+  let lastYear = '';
+
+  entries.forEach(entry => {
+    const year = entry.date?.substring(0, 4) || '';
+    if (year !== lastYear) {
+      html += `<div class="year-separator"><span>${year}</span></div>`;
+      lastYear = year;
+    }
+
+    html += `<div class="entry-card">
+      <div class="entry-dot"></div>
+      <div class="entry-date">${formatDate(entry.date)}</div>`;
+
+    if (entry.photoURL) {
+      html += `<img class="entry-photo" src="${entry.photoURL}" alt="diary photo" loading="lazy" onclick="openLightbox('${entry.photoURL}')">`;
+    }
+
+    if (entry.text) {
+      html += `<div class="entry-text">${escapeHtml(entry.text)}</div>`;
+    }
+
+    html += `<div class="entry-actions">
+        <button class="entry-action-btn" onclick="openAddModal('${entry.id}')">✏️ Edit</button>
+        <button class="entry-action-btn" onclick="confirmDelete('${entry.id}')">🗑️ Delete</button>
+      </div>
+    </div>`;
+  });
+
+  html += '</div>';
+  timeline.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ── Lightbox ── */
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeLightbox();
+    closeAddModal();
+    closeSettings();
+    closeConfirm();
+  }
+});
+
+/* ── Settings ── */
+function openSettings() {
+  document.getElementById('currentPass').value = '';
+  document.getElementById('newPass').value = '';
+  document.getElementById('passMsg').textContent = '';
+  document.getElementById('settingsModal').classList.add('active');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('active');
+}
+
+/* ── Init ── */
+loadPasscodeHash();
+document.getElementById('passcodeInput').focus();
+</script>
+</body>
+</html>
