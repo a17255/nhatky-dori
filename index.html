@@ -642,36 +642,26 @@ let lbTouchSX = 0, lbTouchSY = 0, lbPanX0 = 0, lbPanY0 = 0, lbLastTap = 0;
 let lbDragging = false, lbDragSX = 0, lbDragSY = 0, lbDragPX0 = 0, lbDragPY0 = 0;
 
 function lbLayout() {
-  // Calculate image size to fill screen, respecting aspect ratio and rotation
   const vw = window.innerWidth, vh = window.innerHeight;
   const nw = lbImg.naturalWidth, nh = lbImg.naturalHeight;
   if (!nw || !nh) return;
 
-  // After rotation, effective dimensions swap for 90/270
+  // After rotation 90/270, visual width/height swap
   const swapped = (lbRot % 180 !== 0);
-  const ew = swapped ? nh : nw;
-  const eh = swapped ? nw : nh;
+  const visW = swapped ? nh : nw;
+  const visH = swapped ? nw : nh;
 
-  const ratio = Math.min(vw / ew, vh / eh);
-  const w = Math.round(ew * ratio);
-  const h = Math.round(eh * ratio);
+  // Scale so the ROTATED image fits the viewport
+  const ratio = Math.min(vw / visW, vh / visH);
 
-  lbBaseW = w; lbBaseH = h;
-  lbBaseL = Math.round((vw - w) / 2);
-  lbBaseT = Math.round((vh - h) / 2);
+  // IMG element is always sized at natural aspect ratio — CSS rotate does the rest
+  const imgW = Math.round(nw * ratio);
+  const imgH = Math.round(nh * ratio);
 
-  // Set the actual image element size (pre-rotation natural dims scaled)
-  const imgDispW = swapped ? Math.round(nh * ratio) : Math.round(nw * ratio);
-  const imgDispH = swapped ? Math.round(nw * ratio) : Math.round(nh * ratio);
-
-  lbImg.style.width = imgDispW + 'px';
-  lbImg.style.height = imgDispH + 'px';
-
-  // Center the image element, then apply rotation + zoom + pan
-  const imgL = Math.round((vw - imgDispW) / 2);
-  const imgT = Math.round((vh - imgDispH) / 2);
-  lbImg.style.left = imgL + 'px';
-  lbImg.style.top = imgT + 'px';
+  lbImg.style.width = imgW + 'px';
+  lbImg.style.height = imgH + 'px';
+  lbImg.style.left = Math.round((vw - imgW) / 2) + 'px';
+  lbImg.style.top = Math.round((vh - imgH) / 2) + 'px';
 }
 
 function lbApplyTransform(animate) {
@@ -690,7 +680,14 @@ function openLightbox(url) {
   lbImg.src = url;
   lbEl.classList.add('active');
   document.body.style.overflow = 'hidden';
-  lbImg.onload = () => { lbLayout(); lbApplyTransform(false); };
+  lbImg.onload = () => {
+    const nw = lbImg.naturalWidth, nh = lbImg.naturalHeight;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // Auto-rotate: landscape image on portrait screen → rotate 90° to fill screen
+    if (nw > nh * 1.2 && vh > vw) lbRot = 90;
+    lbLayout();
+    lbApplyTransform(false);
+  };
 }
 
 function closeLightbox() {
@@ -711,7 +708,7 @@ document.getElementById('timeline').addEventListener('click', e => {
 document.getElementById('lbClose').onclick = closeLightbox;
 document.getElementById('lbZoomIn').onclick = () => { lbZoom = Math.min(6, lbZoom * 1.5); lbApplyTransform(true); };
 document.getElementById('lbZoomOut').onclick = () => { lbZoom = Math.max(1, lbZoom / 1.5); if (lbZoom <= 1) lbResetView(true); else lbApplyTransform(true); };
-document.getElementById('lbRotate').onclick = () => { lbRot = (lbRot + 90) % 360; lbPanX = 0; lbPanY = 0; lbZoom = 1; lbLayout(); lbApplyTransform(true); };
+document.getElementById('lbRotate').onclick = () => { lbRot = (lbRot + 90) % 360; lbZoom = 1; lbPanX = 0; lbPanY = 0; lbLayout(); lbApplyTransform(true); };
 
 // Click black area → close (not when zoomed or dragging)
 lbEl.addEventListener('click', e => {
