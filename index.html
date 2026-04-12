@@ -43,10 +43,24 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .header .diary-title{font-size:1.8rem}
 .header-right{display:flex;gap:8px;align-items:center}
 
-/* ── Floating Add Button ── */
-.fab{position:fixed;bottom:28px;right:28px;width:60px;height:60px;border-radius:50%;background:var(--pink);color:var(--bg);border:none;font-size:2rem;cursor:pointer;box-shadow:0 4px 20px rgba(244,166,193,0.4);transition:transform .2s,box-shadow .2s;z-index:40;display:flex;align-items:center;justify-content:center;line-height:1}
+/* ── Floating Add Buttons ── */
+.fab-group{position:fixed;bottom:28px;right:28px;display:flex;flex-direction:column;gap:12px;align-items:center;z-index:40}
+.fab{width:60px;height:60px;border-radius:50%;background:var(--pink);color:var(--bg);border:none;font-size:2rem;cursor:pointer;box-shadow:0 4px 20px rgba(244,166,193,0.4);transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center;line-height:1}
 .fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(244,166,193,0.5)}
 .fab:active{transform:scale(0.95)}
+.fab-small{width:46px;height:46px;font-size:1.2rem;background:var(--bg2);border:1px solid var(--pink);color:var(--pink);box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+.fab-small:hover{background:var(--pink);color:var(--bg)}
+.fab-label{font-size:0.65rem;color:var(--text2);position:absolute;right:68px;white-space:nowrap;background:var(--bg2);padding:3px 8px;border-radius:6px;pointer-events:none}
+
+/* ── Bulk Upload ── */
+.bulk-file-list{max-height:200px;overflow-y:auto;margin:12px 0}
+.bulk-file-item{display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg3);border-radius:8px;margin-bottom:6px}
+.bulk-file-item img{width:48px;height:48px;object-fit:cover;border-radius:6px}
+.bulk-file-item .name{flex:1;font-size:0.85rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bulk-file-item .status{font-size:0.75rem;color:var(--text2)}
+.bulk-file-item .status.done{color:#3fb950}
+.bulk-file-item .status.err{color:#f85149}
+.bulk-count{font-size:0.85rem;color:var(--text2);margin-bottom:12px}
 
 /* ── Settings Button ── */
 .settings-btn{background:none;border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:border-color .2s,color .2s}
@@ -193,7 +207,10 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
       <p>Loading diary...</p>
     </div>
   </main>
-  <button class="fab" onclick="openAddModal()" title="Add new entry">+</button>
+  <div class="fab-group">
+    <button class="fab fab-small" onclick="openBulkModal()" title="Bulk upload photos">&#128247;</button>
+    <button class="fab" onclick="openAddModal()" title="Add new entry">+</button>
+  </div>
 </div>
 
 <!-- Add/Edit Entry Modal -->
@@ -265,6 +282,37 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
         </table>
         <p class="limits-note">For a family diary, these limits are more than enough.</p>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Upload Modal -->
+<div class="modal-overlay" id="bulkModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Bulk Upload Photos</h2>
+      <button class="modal-close" onclick="closeBulkModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Date for all photos</label>
+        <input class="form-input" type="date" id="bulkDate">
+      </div>
+      <div class="form-group">
+        <input type="file" id="bulkFiles" accept="image/*" multiple style="display:none">
+        <div class="photo-upload" onclick="document.getElementById('bulkFiles').click()">
+          <div class="upload-icon">📷</div>
+          <div class="upload-text">Tap to select multiple photos</div>
+          <div class="upload-hint">Select as many as you want</div>
+        </div>
+      </div>
+      <div class="bulk-count" id="bulkCount"></div>
+      <div class="bulk-file-list" id="bulkFileList"></div>
+      <div class="upload-progress" id="bulkProgress" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="bulkProgressFill"></div></div>
+        <div class="progress-text" id="bulkProgressText">Uploading...</div>
+      </div>
+      <button class="submit-btn" id="bulkSubmitBtn" onclick="bulkUpload()" style="display:none">Upload All</button>
     </div>
   </div>
 </div>
@@ -628,6 +676,108 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+/* ── Bulk Upload ── */
+let bulkFiles = [];
+
+document.getElementById('bulkFiles').addEventListener('change', e => {
+  bulkFiles = Array.from(e.target.files);
+  const list = document.getElementById('bulkFileList');
+  const count = document.getElementById('bulkCount');
+  const btn = document.getElementById('bulkSubmitBtn');
+
+  if (bulkFiles.length === 0) { list.innerHTML = ''; count.textContent = ''; btn.style.display = 'none'; return; }
+
+  count.textContent = bulkFiles.length + ' photo(s) selected';
+  btn.style.display = '';
+  list.innerHTML = '';
+
+  bulkFiles.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+    list.innerHTML += `<div class="bulk-file-item" id="bulkItem${i}"><img src="${url}" alt=""><span class="name">${f.name}</span><span class="status" id="bulkStatus${i}">Waiting</span></div>`;
+  });
+});
+
+function openBulkModal() {
+  bulkFiles = [];
+  document.getElementById('bulkDate').value = todayStr();
+  document.getElementById('bulkFiles').value = '';
+  document.getElementById('bulkFileList').innerHTML = '';
+  document.getElementById('bulkCount').textContent = '';
+  document.getElementById('bulkSubmitBtn').style.display = 'none';
+  document.getElementById('bulkProgress').style.display = 'none';
+  document.getElementById('bulkModal').classList.add('active');
+}
+
+function closeBulkModal() {
+  document.getElementById('bulkModal').classList.remove('active');
+}
+
+async function bulkUpload() {
+  const date = document.getElementById('bulkDate').value;
+  if (!date) { toast('Please pick a date'); return; }
+  if (bulkFiles.length === 0) { toast('No photos selected'); return; }
+
+  const btn = document.getElementById('bulkSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Uploading...';
+  document.getElementById('bulkProgress').style.display = '';
+  const fill = document.getElementById('bulkProgressFill');
+  const ptext = document.getElementById('bulkProgressText');
+
+  let done = 0, failed = 0;
+
+  for (let i = 0; i < bulkFiles.length; i++) {
+    const f = bulkFiles[i];
+    const statusEl = document.getElementById('bulkStatus' + i);
+    statusEl.textContent = 'Uploading...';
+    statusEl.className = 'status';
+
+    try {
+      // Convert to base64
+      const base64 = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(f);
+      });
+
+      const formData = new FormData();
+      formData.append('key', IMGBB_API_KEY);
+      formData.append('image', base64);
+
+      const resp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+      const result = await resp.json();
+      if (!result.success) throw new Error('Upload failed');
+
+      const photoURL = result.data.image?.url || result.data.display_url;
+
+      // Save to Firestore (text empty — user or Claude will add later)
+      await db.collection('entries').add({
+        date,
+        text: '',
+        photoURL,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      done++;
+      statusEl.textContent = 'Done';
+      statusEl.className = 'status done';
+    } catch(err) {
+      failed++;
+      statusEl.textContent = 'Failed';
+      statusEl.className = 'status err';
+    }
+
+    const pct = Math.round(((i + 1) / bulkFiles.length) * 100);
+    fill.style.width = pct + '%';
+    ptext.textContent = `${done} done, ${failed} failed / ${bulkFiles.length} total`;
+  }
+
+  btn.textContent = 'Done!';
+  toast(`Uploaded ${done} photo(s)` + (failed ? `, ${failed} failed` : ''));
+  setTimeout(() => { closeBulkModal(); loadEntries(); }, 1500);
 }
 
 /* ── Lightbox: full-screen image viewer ── */
