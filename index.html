@@ -818,22 +818,21 @@ document.getElementById('bulkFiles').addEventListener('change', e => {
 });
 
 function openBulkModal() {
+  // Always reset state when opening (unless mid-upload)
   if (!bulkUploading) {
     bulkQueue = [];
     bulkNextId = 0;
     bulkDone = 0;
     bulkFailed = 0;
+    document.getElementById('bulkFileList').innerHTML = '';
+    document.getElementById('bulkCount').textContent = '';
+    document.getElementById('bulkProgress').style.display = 'none';
   }
   document.getElementById('bulkDate').value = todayStr();
   document.getElementById('bulkFiles').value = '';
-  if (!bulkUploading) {
-    document.getElementById('bulkFileList').innerHTML = '';
-    document.getElementById('bulkCount').textContent = '';
-    document.getElementById('bulkSubmitBtn').style.display = 'none';
-    document.getElementById('bulkSubmitBtn').disabled = false;
-    document.getElementById('bulkSubmitBtn').textContent = 'Upload All';
-    document.getElementById('bulkProgress').style.display = 'none';
-  }
+  document.getElementById('bulkSubmitBtn').style.display = bulkQueue.length > 0 ? '' : 'none';
+  document.getElementById('bulkSubmitBtn').disabled = false;
+  document.getElementById('bulkSubmitBtn').textContent = 'Upload All';
   document.getElementById('bulkModal').classList.add('active');
 }
 
