@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -110,15 +110,24 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .timeline-line::before{content:'';position:absolute;left:20px;top:0;bottom:0;width:2px;background:var(--border)}
 @media(max-width:480px){.timeline-line::before{left:16px}}
 
+/* ── Display Settings Controls ── */
+.display-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.display-row label{font-size:0.85rem;color:var(--text);white-space:nowrap;min-width:80px}
+.display-row select,.display-row input[type=range]{flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:0.85rem}
+.display-row input[type=color]{width:40px;height:32px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);cursor:pointer;padding:2px}
+.display-row .size-val{font-size:0.8rem;color:var(--text2);min-width:42px;text-align:right}
+.display-reset{background:none;border:1px solid var(--border);color:var(--text2);padding:8px 16px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.8rem;transition:all .2s}
+.display-reset:hover{border-color:var(--pink);color:var(--pink)}
+
 /* ── Entry Card ── */
 .entry-card{position:relative;margin-left:44px;margin-bottom:28px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all .3s;backdrop-filter:blur(4px)}
 @media(max-width:480px){.entry-card{margin-left:36px}}
 .entry-card:hover{border-color:var(--pink);box-shadow:0 4px 20px rgba(244,166,193,0.1)}
 .entry-dot{position:absolute;left:-32px;top:24px;width:12px;height:12px;background:var(--pink);border-radius:50%;border:2px solid var(--bg);z-index:2}
 @media(max-width:480px){.entry-dot{left:-28px;width:10px;height:10px}}
-.entry-date{padding:14px 18px 0;font-size:0.85rem;color:var(--pink);font-weight:600;letter-spacing:0.3px}
+.entry-date{padding:14px 18px 0;font-size:0.85rem;color:var(--user-date-color,var(--pink));font-weight:600;letter-spacing:0.3px}
 .entry-photo{width:100%;cursor:pointer;display:block;margin-top:12px;max-height:500px;object-fit:cover;object-position:center 20%}
-.entry-text{padding:14px 18px 16px;font-size:0.95rem;line-height:1.65;color:var(--text);white-space:pre-wrap}
+.entry-text{padding:14px 18px 16px;font-size:var(--user-size,0.95rem);line-height:1.65;color:var(--user-text-color,var(--text));font-family:var(--user-font,inherit);white-space:pre-wrap}
 .entry-text:empty{display:none}
 .entry-actions{padding:0 18px 12px;display:flex;gap:12px}
 .entry-action-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:0.8rem;padding:4px 8px;border-radius:6px;transition:color .2s,background .2s}
@@ -334,6 +343,32 @@ body.admin-mode .admin-only{display:flex!important}
       <button class="modal-close" onclick="closeSettings()">&times;</button>
     </div>
     <div class="modal-body">
+      <div class="settings-section">
+        <h3>Display</h3>
+        <div class="display-row">
+          <label>Font</label>
+          <select id="dispFont" onchange="saveDisplaySetting('font',this.value)">
+            <option value="inherit">Default</option>
+            <option value="'Noto Serif',Georgia,serif">Serif</option>
+            <option value="'Dancing Script',cursive">Handwriting</option>
+            <option value="'Courier New',monospace">Monospace</option>
+          </select>
+        </div>
+        <div class="display-row">
+          <label>Size</label>
+          <input type="range" id="dispSize" min="0.75" max="1.4" step="0.05" value="0.95" oninput="saveDisplaySetting('size',this.value);document.getElementById('sizeVal').textContent=this.value+'rem'">
+          <span class="size-val" id="sizeVal">0.95rem</span>
+        </div>
+        <div class="display-row">
+          <label>Text color</label>
+          <input type="color" id="dispTextColor" value="#e6edf3" onchange="saveDisplaySetting('textColor',this.value)">
+        </div>
+        <div class="display-row">
+          <label>Date color</label>
+          <input type="color" id="dispDateColor" value="#f4a6c1" onchange="saveDisplaySetting('dateColor',this.value)">
+        </div>
+        <button class="display-reset" onclick="resetDisplaySettings()">Reset to Default</button>
+      </div>
       <div class="settings-section">
         <h3>Event Reminders</h3>
         <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px">Get notified about birthdays, milestones, or any special day.</p>
@@ -1113,9 +1148,8 @@ document.addEventListener('keydown', e => {
 
 /* ── Settings ── */
 function openSettings() {
-  document.getElementById('currentPass').value = '';
-  document.getElementById('newPass').value = '';
-  document.getElementById('passMsg').textContent = '';
+  try { document.getElementById('currentPass').value = ''; document.getElementById('newPass').value = ''; document.getElementById('passMsg').textContent = ''; } catch(e){}
+  loadDisplaySettings();
   document.getElementById('settingsModal').classList.add('active');
   // Load reminder list
   loadReminders().then(reminders => {
@@ -1294,8 +1328,42 @@ function toggleMusic() {
   }
 }
 
+/* ── Display Settings ── */
+const DISP_DEFAULTS = { font:'inherit', size:'0.95', textColor:'#e6edf3', dateColor:'#f4a6c1' };
+
+function loadDisplaySettings() {
+  const r = document.documentElement.style;
+  const font = localStorage.getItem('dori_disp_font') || DISP_DEFAULTS.font;
+  const size = localStorage.getItem('dori_disp_size') || DISP_DEFAULTS.size;
+  const textColor = localStorage.getItem('dori_disp_textColor') || DISP_DEFAULTS.textColor;
+  const dateColor = localStorage.getItem('dori_disp_dateColor') || DISP_DEFAULTS.dateColor;
+  r.setProperty('--user-font', font);
+  r.setProperty('--user-size', size + 'rem');
+  r.setProperty('--user-text-color', textColor);
+  r.setProperty('--user-date-color', dateColor);
+  // Sync controls if settings modal is open
+  const f = document.getElementById('dispFont');
+  if (f) { f.value = font; document.getElementById('dispSize').value = size; document.getElementById('sizeVal').textContent = size + 'rem'; document.getElementById('dispTextColor').value = textColor; document.getElementById('dispDateColor').value = dateColor; }
+}
+
+function saveDisplaySetting(key, value) {
+  localStorage.setItem('dori_disp_' + key, value);
+  const r = document.documentElement.style;
+  if (key === 'font') r.setProperty('--user-font', value);
+  else if (key === 'size') r.setProperty('--user-size', value + 'rem');
+  else if (key === 'textColor') r.setProperty('--user-text-color', value);
+  else if (key === 'dateColor') r.setProperty('--user-date-color', value);
+}
+
+function resetDisplaySettings() {
+  Object.keys(DISP_DEFAULTS).forEach(k => { localStorage.removeItem('dori_disp_' + k); });
+  loadDisplaySettings();
+  toast('Display reset to default');
+}
+
 /* ── Init ── */
 createParticles();
+loadDisplaySettings();
 loadPasscodeHash().then(() => tryAutoUnlock());
 document.getElementById('passcodeInput').focus();
 </script>
