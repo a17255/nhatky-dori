@@ -442,6 +442,8 @@ body.admin-mode .admin-only{display:flex!important}
   <div class="lb-toolbar">
     <button class="lb-btn" id="lbZoomIn" title="Zoom in">&#43;</button>
     <button class="lb-btn" id="lbZoomOut" title="Zoom out">&#8722;</button>
+    <button class="lb-btn" id="lbPrev" title="Previous (←)">&#8592;</button>
+    <button class="lb-btn" id="lbNext" title="Next (→)">&#8594;</button>
     <button class="lb-btn" id="lbRotate" title="Rotate">&#8635;</button>
     <button class="lb-btn" id="lbText" title="Show/hide text">&#9998;</button>
     <button class="lb-btn" id="lbClose" title="Close">&#10005;</button>
@@ -1034,31 +1036,47 @@ function lbResetView(animate) {
   lbApplyTransform(animate);
 }
 
-function openLightbox(url, text, date) {
+let lbList = [], lbIdx = 0;
+
+function lbShow(idx) {
+  if (!lbList.length) return;
+  lbIdx = (idx + lbList.length) % lbList.length;
+  const item = lbList[lbIdx];
   lbZoom = 1; lbRot = 0; lbPanX = 0; lbPanY = 0;
-  lbImg.src = url;
-  lbEl.classList.add('active');
-  document.body.style.overflow = 'hidden';
-  // Populate text panel (starts closed so image fills screen)
+  lbImg.src = item.url;
+  // Populate text panel — preserve current open/closed state across navigation
   const panel = document.getElementById('lbTextPanel');
   const dateEl = document.getElementById('lbTextDate');
   const bodyEl = document.getElementById('lbTextBody');
   const btn = document.getElementById('lbText');
-  const hasText = text && text.trim().length > 0;
-  dateEl.textContent = date || '';
-  bodyEl.textContent = (text || '').trim();
-  panel.classList.remove('open');
+  const hasText = item.text && item.text.trim().length > 0;
+  dateEl.textContent = item.date || '';
+  bodyEl.textContent = (item.text || '').trim();
+  bodyEl.scrollTop = 0;
   panel.classList.toggle('empty', !hasText);
   btn.style.display = hasText ? '' : 'none';
-  btn.classList.remove('active');
+  if (!hasText) { panel.classList.remove('open'); btn.classList.remove('active'); }
+  // Show/hide prev/next buttons based on list size
+  const multi = lbList.length > 1;
+  document.getElementById('lbPrev').style.display = multi ? '' : 'none';
+  document.getElementById('lbNext').style.display = multi ? '' : 'none';
   lbImg.onload = () => {
     const nw = lbImg.naturalWidth, nh = lbImg.naturalHeight;
     const vw = window.innerWidth, vh = window.innerHeight;
-    // Auto-rotate: landscape image on portrait screen → rotate 90° to fill screen
     if (nw > nh * 1.2 && vh > vw) lbRot = 90;
     lbLayout();
     lbApplyTransform(false);
   };
+}
+
+function openLightbox(list, idx) {
+  lbList = list;
+  lbEl.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  // Reset text panel state only on initial open
+  document.getElementById('lbTextPanel').classList.remove('open');
+  document.getElementById('lbText').classList.remove('active');
+  lbShow(idx);
 }
 
 function closeLightbox() {
@@ -1074,11 +1092,18 @@ window.addEventListener('resize', () => { if (lbEl.classList.contains('active'))
 // Click photo in timeline → open lightbox
 document.getElementById('timeline').addEventListener('click', e => {
   const img = e.target.closest('.entry-photo');
-  if (img && img.dataset.full) openLightbox(img.dataset.full, img.dataset.text, img.dataset.date);
+  if (!img || !img.dataset.full) return;
+  // Build list of all visible photos in DOM order, find clicked index
+  const all = Array.from(document.querySelectorAll('.entry-photo'));
+  const list = all.map(el => ({ url: el.dataset.full, text: el.dataset.text || '', date: el.dataset.date || '' }));
+  const idx = all.indexOf(img);
+  openLightbox(list, idx);
 });
 
 // Toolbar
 document.getElementById('lbClose').onclick = closeLightbox;
+document.getElementById('lbPrev').onclick = (e) => { e.stopPropagation(); lbShow(lbIdx - 1); };
+document.getElementById('lbNext').onclick = (e) => { e.stopPropagation(); lbShow(lbIdx + 1); };
 document.getElementById('lbText').onclick = () => {
   const panel = document.getElementById('lbTextPanel');
   const btn = document.getElementById('lbText');
@@ -1190,6 +1215,11 @@ document.addEventListener('keydown', e => {
     closeAddModal();
     closeSettings();
     closeConfirm();
+  }
+  // Arrow-key navigation when lightbox is open
+  if (lbEl.classList.contains('active') && lbList.length > 1) {
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); lbShow(lbIdx - 1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); lbShow(lbIdx + 1); }
   }
 });
 
