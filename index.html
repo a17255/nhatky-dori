@@ -180,7 +180,7 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .lb-btn{background:rgba(255,255,255,0.2);color:#fff;border:none;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center;transition:background .2s}
 .lb-btn:hover{background:rgba(255,255,255,0.4)}
 #lightboxImg{position:absolute;transform-origin:center center;cursor:grab;touch-action:none;user-select:none;-webkit-user-drag:none}
-.lb-text-panel{position:absolute;left:0;right:0;bottom:0;max-height:45vh;background:rgba(13,17,23,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#e6edf3;border-top:1px solid rgba(255,255,255,0.15);z-index:10000;transform:translateY(100%);transition:transform .3s ease;display:flex;flex-direction:column}
+.lb-text-panel{position:absolute;left:0;right:0;bottom:0;max-height:45vh;background:rgba(13,17,23,0.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.7);border-top:1px solid rgba(255,255,255,0.12);z-index:10000;transform:translateY(100%);transition:transform .3s ease;display:flex;flex-direction:column}
 .lb-text-panel.open{transform:translateY(0)}
 .lb-text-panel.empty{display:none}
 .lb-text-date{padding:12px 20px 6px;font-size:0.85rem;color:#ff9ec7;font-weight:600;letter-spacing:0.3px;flex-shrink:0}
@@ -1094,8 +1094,20 @@ lbEl.addEventListener('click', e => {
   if (e.target === lbEl && lbZoom <= 1.05 && !lbDragging) closeLightbox();
 });
 
-// ── Desktop: mouse wheel zoom ──
+// Click on the image itself → hide text panel (if open)
+lbImg.addEventListener('click', e => {
+  if (lbDragging) return;
+  const panel = document.getElementById('lbTextPanel');
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    document.getElementById('lbText').classList.remove('active');
+  }
+});
+
+// ── Desktop: mouse wheel zoom (but scroll text when hovering text panel) ──
 lbEl.addEventListener('wheel', e => {
+  // If wheel event is inside the text panel, let it scroll the text naturally
+  if (e.target.closest('.lb-text-panel')) return;
   e.preventDefault();
   // scroll UP = zoom in, scroll DOWN = zoom out
   const factor = e.deltaY < 0 ? 1.15 : 0.85;
