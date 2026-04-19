@@ -180,6 +180,16 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .lb-btn{background:rgba(255,255,255,0.2);color:#fff;border:none;width:46px;height:46px;border-radius:50%;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center;transition:background .2s}
 .lb-btn:hover{background:rgba(255,255,255,0.4)}
 #lightboxImg{position:absolute;transform-origin:center center;cursor:grab;touch-action:none;user-select:none;-webkit-user-drag:none}
+.lb-text-panel{position:absolute;left:0;right:0;bottom:0;max-height:45vh;background:rgba(13,17,23,0.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#e6edf3;border-top:1px solid rgba(255,255,255,0.15);z-index:10000;transform:translateY(100%);transition:transform .3s ease;display:flex;flex-direction:column}
+.lb-text-panel.open{transform:translateY(0)}
+.lb-text-panel.empty{display:none}
+.lb-text-date{padding:12px 20px 6px;font-size:0.85rem;color:#ff9ec7;font-weight:600;letter-spacing:0.3px;flex-shrink:0}
+.lb-text-body{padding:4px 20px 18px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;font-size:0.98rem;flex:1;scrollbar-width:thin;scrollbar-color:rgba(255,158,199,0.5) transparent}
+.lb-text-body::-webkit-scrollbar{width:8px}
+.lb-text-body::-webkit-scrollbar-thumb{background:rgba(255,158,199,0.5);border-radius:4px}
+.lb-text-body::-webkit-scrollbar-track{background:transparent}
+.lb-btn.active{background:rgba(255,158,199,0.6)}
+@media (max-width:600px){.lb-text-panel{max-height:55vh}.lb-text-body{font-size:0.95rem}}
 
 /* ── Settings Modal ── */
 .settings-section{margin-bottom:24px}
@@ -433,9 +443,14 @@ body.admin-mode .admin-only{display:flex!important}
     <button class="lb-btn" id="lbZoomIn" title="Zoom in">&#43;</button>
     <button class="lb-btn" id="lbZoomOut" title="Zoom out">&#8722;</button>
     <button class="lb-btn" id="lbRotate" title="Rotate">&#8635;</button>
+    <button class="lb-btn" id="lbText" title="Show/hide text">&#9998;</button>
     <button class="lb-btn" id="lbClose" title="Close">&#10005;</button>
   </div>
   <img id="lightboxImg" src="" alt="">
+  <div class="lb-text-panel" id="lbTextPanel">
+    <div class="lb-text-date" id="lbTextDate"></div>
+    <div class="lb-text-body" id="lbTextBody"></div>
+  </div>
 </div>
 
 <!-- Delete Confirm -->
@@ -818,7 +833,7 @@ function renderTimeline() {
       <div class="entry-date">${formatDate(entry.date)}${childLabel}</div>`;
 
     if (entry.photoURL) {
-      html += `<img class="entry-photo" src="${entry.photoURL}" alt="diary photo" loading="lazy" data-full="${entry.photoURL}">`;
+      html += `<img class="entry-photo" src="${entry.photoURL}" alt="diary photo" loading="lazy" data-full="${entry.photoURL}" data-text="${escapeHtml(entry.text || '')}" data-date="${escapeHtml(formatDate(entry.date) || '')}">`;
     }
 
     if (entry.text) {
@@ -1019,11 +1034,23 @@ function lbResetView(animate) {
   lbApplyTransform(animate);
 }
 
-function openLightbox(url) {
+function openLightbox(url, text, date) {
   lbZoom = 1; lbRot = 0; lbPanX = 0; lbPanY = 0;
   lbImg.src = url;
   lbEl.classList.add('active');
   document.body.style.overflow = 'hidden';
+  // Populate text panel (starts closed so image fills screen)
+  const panel = document.getElementById('lbTextPanel');
+  const dateEl = document.getElementById('lbTextDate');
+  const bodyEl = document.getElementById('lbTextBody');
+  const btn = document.getElementById('lbText');
+  const hasText = text && text.trim().length > 0;
+  dateEl.textContent = date || '';
+  bodyEl.textContent = (text || '').trim();
+  panel.classList.remove('open');
+  panel.classList.toggle('empty', !hasText);
+  btn.style.display = hasText ? '' : 'none';
+  btn.classList.remove('active');
   lbImg.onload = () => {
     const nw = lbImg.naturalWidth, nh = lbImg.naturalHeight;
     const vw = window.innerWidth, vh = window.innerHeight;
@@ -1037,6 +1064,8 @@ function openLightbox(url) {
 function closeLightbox() {
   lbEl.classList.remove('active');
   document.body.style.overflow = '';
+  document.getElementById('lbTextPanel').classList.remove('open');
+  document.getElementById('lbText').classList.remove('active');
 }
 
 // Window resize → refit
@@ -1045,11 +1074,17 @@ window.addEventListener('resize', () => { if (lbEl.classList.contains('active'))
 // Click photo in timeline → open lightbox
 document.getElementById('timeline').addEventListener('click', e => {
   const img = e.target.closest('.entry-photo');
-  if (img && img.dataset.full) openLightbox(img.dataset.full);
+  if (img && img.dataset.full) openLightbox(img.dataset.full, img.dataset.text, img.dataset.date);
 });
 
 // Toolbar
 document.getElementById('lbClose').onclick = closeLightbox;
+document.getElementById('lbText').onclick = () => {
+  const panel = document.getElementById('lbTextPanel');
+  const btn = document.getElementById('lbText');
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('active', isOpen);
+};
 document.getElementById('lbZoomIn').onclick = () => { lbZoom = Math.min(6, lbZoom * 1.5); lbApplyTransform(true); };
 document.getElementById('lbZoomOut').onclick = () => { lbZoom = Math.max(1, lbZoom / 1.5); if (lbZoom <= 1) lbResetView(true); else lbApplyTransform(true); };
 document.getElementById('lbRotate').onclick = () => { lbRot = (lbRot + 90) % 360; lbZoom = 1; lbPanX = 0; lbPanY = 0; lbLayout(); lbApplyTransform(true); };
