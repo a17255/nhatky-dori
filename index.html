@@ -385,6 +385,23 @@ body.admin-mode .admin-only{display:flex!important}
         <button class="settings-small-btn" onclick="openReminderForm()">+ Add Reminder</button>
         <div id="reminderList" style="margin-top:12px"></div>
       </div>
+      <div class="settings-section" id="findReplaceSection" style="display:none">
+        <h3>Find &amp; Replace in Entries</h3>
+        <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px">Bulk-edit text across all diary entries. Case-sensitive.</p>
+        <div class="form-group">
+          <label class="form-label">Find</label>
+          <input class="form-input" type="text" id="frFind" placeholder="bà ngoại">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Replace with</label>
+          <input class="form-input" type="text" id="frReplace" placeholder="bà nội">
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="settings-small-btn" onclick="previewFindReplace()">Preview</button>
+          <button class="settings-small-btn" id="frApplyBtn" onclick="applyFindReplace()" style="background:#d64545;display:none">Apply</button>
+        </div>
+        <div id="frResult" style="margin-top:10px;font-size:0.85rem;color:var(--text2);white-space:pre-wrap"></div>
+      </div>
       <div class="settings-section">
         <h3>Free Tier Limits</h3>
         <table class="limits-table">
@@ -1102,8 +1119,8 @@ document.getElementById('timeline').addEventListener('click', e => {
 
 // Toolbar
 document.getElementById('lbClose').onclick = closeLightbox;
-document.getElementById('lbPrev').onclick = (e) => { e.stopPropagation(); lbShow(lbIdx - 1); };
-document.getElementById('lbNext').onclick = (e) => { e.stopPropagation(); lbShow(lbIdx + 1); };
+document.getElementById('lbPrev').onclick = (e) => { e.stopPropagation(); e.currentTarget.blur(); lbShow(lbIdx - 1); };
+document.getElementById('lbNext').onclick = (e) => { e.stopPropagation(); e.currentTarget.blur(); lbShow(lbIdx + 1); };
 document.getElementById('lbText').onclick = () => {
   const panel = document.getElementById('lbTextPanel');
   const btn = document.getElementById('lbText');
@@ -1208,25 +1225,40 @@ lbImg.addEventListener('touchend', () => {
   if (lbZoom < 1) lbResetView(true);
 });
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    if (lbZoom > 1.1) { lbResetView(true); return; }
+// Use window + capture so arrows fire even if a toolbar button has focus
+window.addEventListener('keydown', e => {
+  // Don't hijack keys when user is typing in an input / textarea / contenteditable
+  const t = e.target;
+  const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+
+  if (e.key === 'Escape' && !typing) {
+    if (lbEl.classList.contains('active') && lbZoom > 1.1) { lbResetView(true); return; }
     closeLightbox();
     closeAddModal();
     closeSettings();
     closeConfirm();
+    return;
   }
   // Arrow-key navigation when lightbox is open
-  if (lbEl.classList.contains('active') && lbList.length > 1) {
-    if (e.key === 'ArrowLeft')  { e.preventDefault(); lbShow(lbIdx - 1); }
-    if (e.key === 'ArrowRight') { e.preventDefault(); lbShow(lbIdx + 1); }
+  if (lbEl.classList.contains('active') && lbList.length > 1 && !typing) {
+    if (e.key === 'ArrowLeft' || e.keyCode === 37)  { e.preventDefault(); lbShow(lbIdx - 1); }
+    else if (e.key === 'ArrowRight' || e.keyCode === 39) { e.preventDefault(); lbShow(lbIdx + 1); }
   }
-});
+}, true);
 
 /* ── Settings ── */
 function openSettings() {
   try { document.getElementById('currentPass').value = ''; document.getElementById('newPass').value = ''; document.getElementById('passMsg').textContent = ''; } catch(e){}
   loadDisplaySettings();
+  // Admin-only: Find & Replace tool
+  const frSec = document.getElementById('findReplaceSection');
+  if (frSec) {
+    frSec.style.display = isAdmin ? '' : 'none';
+    document.getElementById('frFind').value = '';
+    document.getElementById('frReplace').value = '';
+    document.getElementById('frResult').textContent = '';
+    document.getElementById('frApplyBtn').style.display = 'none';
+  }
   document.getElementById('settingsModal').classList.add('active');
   // Load reminder list
   loadReminders().then(reminders => {
@@ -1243,6 +1275,69 @@ function openSettings() {
 
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('active');
+}
+
+/* ── Find & Replace across all entries (admin) ── */
+let frPending = null;
+
+function previewFindReplace() {
+  if (!isAdmin) { toast('Admin mode required'); return; }
+  const find = document.getElementById('frFind').value;
+  const replace = document.getElementById('frReplace').value;
+  const resultEl = document.getElementById('frResult');
+  const applyBtn = document.getElementById('frApplyBtn');
+  applyBtn.style.display = 'none';
+  frPending = null;
+  if (!find) { resultEl.textContent = 'Enter text to find.'; return; }
+  if (find === replace) { resultEl.textContent = 'Find and replace are identical.'; return; }
+
+  let totalMatches = 0;
+  const changes = [];
+  for (const e of entries) {
+    if (!e.text || !e.text.includes(find)) continue;
+    const count = e.text.split(find).length - 1;
+    totalMatches += count;
+    changes.push({ id: e.id, oldText: e.text, newText: e.text.split(find).join(replace), count });
+  }
+  if (changes.length === 0) {
+    resultEl.textContent = `No entries contain "${find}".`;
+    return;
+  }
+  const sample = changes.slice(0, 3).map(c => `• ${formatDate(entries.find(e=>e.id===c.id).date)} (${c.count}×)`).join('\n');
+  resultEl.textContent = `Found ${totalMatches} match${totalMatches===1?'':'es'} in ${changes.length} entr${changes.length===1?'y':'ies'}:\n${sample}${changes.length>3?`\n…and ${changes.length-3} more`:''}\n\nClick Apply to replace.`;
+  frPending = changes;
+  applyBtn.style.display = '';
+}
+
+async function applyFindReplace() {
+  if (!isAdmin) { toast('Admin mode required'); return; }
+  if (!frPending || !frPending.length) { toast('Run Preview first'); return; }
+  const applyBtn = document.getElementById('frApplyBtn');
+  const resultEl = document.getElementById('frResult');
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Applying…';
+  try {
+    // Firestore batch limit is 500 ops — chunk if needed
+    const chunks = [];
+    for (let i = 0; i < frPending.length; i += 400) chunks.push(frPending.slice(i, i + 400));
+    let done = 0;
+    for (const chunk of chunks) {
+      const batch = db.batch();
+      for (const c of chunk) batch.update(db.collection('entries').doc(c.id), { text: c.newText });
+      await batch.commit();
+      done += chunk.length;
+    }
+    resultEl.textContent = `✓ Updated ${done} entr${done===1?'y':'ies'}.`;
+    applyBtn.style.display = 'none';
+    frPending = null;
+    toast(`Updated ${done} entries`);
+    await loadEntries();
+  } catch (err) {
+    resultEl.textContent = `Error: ${err.message}`;
+  } finally {
+    applyBtn.disabled = false;
+    applyBtn.textContent = 'Apply';
+  }
 }
 
 /* ── Grid Layout Toggle ── */
