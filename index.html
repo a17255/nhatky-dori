@@ -164,6 +164,24 @@ input,textarea,button,select{font-family:inherit;font-size:inherit}
 .photo-upload .upload-hint{color:var(--text2);font-size:0.75rem;margin-top:4px;opacity:0.7}
 .photo-preview{width:100%;max-height:300px;object-fit:cover;display:block;border-radius:var(--radius-sm)}
 .photo-remove{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
+.composer-photos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.composer-thumb{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0}
+.composer-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb-remove{position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.7);color:#fff;border:none;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:0.85rem;display:flex;align-items:center;justify-content:center;padding:0}
+.composer-add-btn{width:80px;height:80px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.5rem;background:transparent;flex-shrink:0}
+.composer-add-btn:hover{border-color:var(--pink);color:var(--pink)}
+.photo-collage{display:grid;gap:2px;margin-top:12px;border-radius:var(--radius-sm);overflow:hidden;max-height:500px}
+.collage-1{grid-template-columns:1fr}
+.collage-2{grid-template-columns:1fr 1fr;grid-template-rows:250px}
+.collage-3{grid-template-columns:2fr 1fr;grid-template-rows:120px 120px}
+.collage-3 .collage-cell:first-child{grid-row:1/3}
+.collage-4{grid-template-columns:1fr 1fr;grid-template-rows:150px 150px}
+.collage-5{grid-template-columns:2fr 1fr 1fr;grid-template-rows:150px 150px}
+.collage-5 .collage-cell:first-child{grid-row:1/3}
+.collage-cell{position:relative;overflow:hidden}
+.collage-cell img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer}
+.collage-1 .collage-cell img{max-height:500px;height:auto}
+.collage-plus-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.6rem;font-weight:700;cursor:pointer;pointer-events:auto}
 .submit-btn{width:100%;padding:14px;background:var(--pink);color:var(--bg);border:none;border-radius:var(--radius-sm);font-size:1.05rem;font-weight:600;cursor:pointer;transition:background .2s,transform .1s}
 .submit-btn:hover{background:var(--pink2)}
 .submit-btn:active{transform:scale(0.97)}
@@ -323,12 +341,12 @@ body.admin-mode .admin-only{display:flex!important}
       </div>
       <div class="form-group">
         <label class="form-label">Photo</label>
-        <input type="file" id="photoFile" accept="image/*" style="display:none">
-        <div class="photo-upload" id="photoUpload" onclick="document.getElementById('photoFile').click()">
-          <div id="uploadPlaceholder">
+        <input type="file" id="photoFile" accept="image/*" multiple style="display:none">
+        <div id="photoComposer">
+          <div class="photo-upload" onclick="document.getElementById('photoFile').click()">
             <div class="upload-icon">📷</div>
-            <div class="upload-text">Tap to add a photo</div>
-            <div class="upload-hint">From gallery or camera</div>
+            <div class="upload-text">Tap to add photos</div>
+            <div class="upload-hint">Select one or multiple</div>
           </div>
         </div>
       </div>
@@ -509,7 +527,7 @@ const IMGBB_API_KEY = '6db6c71225cd8904266034266316c087';
 /* ── State ── */
 let entries = [];
 let editingId = null;
-let selectedPhoto = null;
+let selectedPhotos = []; // { type: 'file'|'url', data: File|string, preview: string }
 let deleteTargetId = null;
 let currentChild = 'all'; // filter: 'all', 'Dori', 'Baby2'
 let isAdmin = false;
@@ -663,27 +681,44 @@ function resizeImage(file, maxDim = 1200) {
   });
 }
 
-/* ── Photo Upload UI ── */
+/* ── Photo Composer ── */
 const photoFile = document.getElementById('photoFile');
-const photoUpload = document.getElementById('photoUpload');
 
 photoFile.addEventListener('change', () => {
-  const file = photoFile.files[0];
-  if (!file) return;
-  selectedPhoto = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    photoUpload.classList.add('has-photo');
-    photoUpload.innerHTML = `<img class="photo-preview" src="${e.target.result}" alt="preview"><button class="photo-remove" onclick="event.stopPropagation();removePhoto()">&times;</button>`;
-  };
-  reader.readAsDataURL(file);
+  const files = Array.from(photoFile.files);
+  if (!files.length) return;
+  files.forEach(file => {
+    selectedPhotos.push({ type: 'file', data: file, preview: URL.createObjectURL(file) });
+  });
+  photoFile.value = '';
+  renderComposer();
 });
 
-function removePhoto() {
-  selectedPhoto = null;
-  photoFile.value = '';
-  photoUpload.classList.remove('has-photo');
-  photoUpload.innerHTML = `<div id="uploadPlaceholder"><div class="upload-icon">📷</div><div class="upload-text">Tap to add a photo</div><div class="upload-hint">From gallery or camera</div></div>`;
+function renderComposer() {
+  const container = document.getElementById('photoComposer');
+  if (selectedPhotos.length === 0) {
+    container.innerHTML = `<div class="photo-upload" onclick="document.getElementById('photoFile').click()"><div class="upload-icon">📷</div><div class="upload-text">Tap to add photos</div><div class="upload-hint">Select one or multiple</div></div>`;
+    return;
+  }
+  let html = '<div class="composer-photos">';
+  selectedPhotos.forEach((item, i) => {
+    html += `<div class="composer-thumb"><img src="${item.preview}" alt="photo ${i+1}"><button class="thumb-remove" onclick="removeComposerPhoto(${i})">&times;</button></div>`;
+  });
+  html += `<button class="composer-add-btn" onclick="document.getElementById('photoFile').click()">+</button>`;
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function removeComposerPhoto(i) {
+  if (selectedPhotos[i].type === 'file') URL.revokeObjectURL(selectedPhotos[i].preview);
+  selectedPhotos.splice(i, 1);
+  renderComposer();
+}
+
+function resetComposer() {
+  selectedPhotos.forEach(p => { if (p.type === 'file') URL.revokeObjectURL(p.preview); });
+  selectedPhotos = [];
+  renderComposer();
 }
 
 /* ── Add/Edit Modal ── */
@@ -694,17 +729,16 @@ function openAddModal(id) {
   document.getElementById('entryChild').value = currentChild !== 'all' ? currentChild : 'Dori';
   document.getElementById('entryDate').value = todayStr();
   document.getElementById('entryText').value = '';
-  removePhoto();
+  resetComposer();
   if (id) {
     const entry = entries.find(e => e.id === id);
     if (entry) {
       document.getElementById('entryChild').value = entry.child || 'Dori';
       document.getElementById('entryDate').value = entry.date;
       document.getElementById('entryText').value = entry.text || '';
-      if (entry.photoURL) {
-        photoUpload.classList.add('has-photo');
-        photoUpload.innerHTML = `<img class="photo-preview" src="${entry.photoURL}" alt="preview"><button class="photo-remove" onclick="event.stopPropagation();removePhoto()">&times;</button>`;
-      }
+      const photoList = entry.photos?.length ? entry.photos : entry.photoURL ? [entry.photoURL] : [];
+      photoList.forEach(url => selectedPhotos.push({ type: 'url', data: url, preview: url }));
+      renderComposer();
     }
   }
   document.getElementById('uploadProgress').style.display = 'none';
@@ -715,6 +749,7 @@ function openAddModal(id) {
 function closeAddModal() {
   document.getElementById('addModal').classList.remove('active');
   editingId = null;
+  resetComposer();
 }
 
 /* ── Save Entry ── */
@@ -722,44 +757,46 @@ async function saveEntry() {
   const date = document.getElementById('entryDate').value;
   const text = document.getElementById('entryText').value.trim();
   if (!date) { toast('Please pick a date'); return; }
-  if (!text && !selectedPhoto && !editingId) { toast('Add a photo or some text'); return; }
+  if (!text && selectedPhotos.length === 0 && !editingId) { toast('Add a photo or some text'); return; }
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
   try {
-    let photoURL = editingId ? (entries.find(e => e.id === editingId)?.photoURL || '') : '';
+    const newFiles = selectedPhotos.filter(p => p.type === 'file');
+    const existingURLs = selectedPhotos.filter(p => p.type === 'url').map(p => p.data);
 
-    // Upload new photo to ImgBB if selected
-    if (selectedPhoto) {
+    let newURLs = [];
+    if (newFiles.length > 0) {
       document.getElementById('uploadProgress').style.display = '';
       const fill = document.getElementById('progressFill');
       const ptext = document.getElementById('progressText');
-      fill.style.width = '30%';
-      ptext.textContent = 'Uploading...';
+      fill.style.width = '10%';
+      ptext.textContent = `Uploading ${newFiles.length} photo${newFiles.length > 1 ? 's' : ''}...`;
 
-      // Convert original file to base64 for ImgBB API (no resize)
-      const base64 = await new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.readAsDataURL(selectedPhoto);
-      });
+      newURLs = await Promise.all(newFiles.map(async (item) => {
+        const base64 = await new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.readAsDataURL(item.data);
+        });
+        const formData = new FormData();
+        formData.append('key', IMGBB_API_KEY);
+        formData.append('image', base64);
+        const resp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+        const result = await resp.json();
+        if (!result.success) throw new Error('Photo upload failed');
+        return result.data.image?.url || result.data.display_url;
+      }));
 
-      const formData = new FormData();
-      formData.append('key', IMGBB_API_KEY);
-      formData.append('image', base64);
-
-      const resp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
-      const result = await resp.json();
-      if (!result.success) throw new Error('Photo upload failed');
-      photoURL = result.data.image?.url || result.data.display_url;
       fill.style.width = '100%';
       ptext.textContent = 'Done!';
     }
 
+    const photos = [...existingURLs, ...newURLs];
     const child = document.getElementById('entryChild').value;
-    const data = { date, text, photoURL, child, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    const data = { date, text, photos, child, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
 
     if (editingId) {
       await db.collection('entries').doc(editingId).update(data);
@@ -777,6 +814,7 @@ async function saveEntry() {
     toast('Error: ' + err.message);
     btn.disabled = false;
     btn.textContent = 'Save Entry';
+    document.getElementById('uploadProgress').style.display = 'none';
   }
 }
 
@@ -800,6 +838,26 @@ function confirmDelete(id) {
 function closeConfirm() {
   document.getElementById('confirmOverlay').classList.remove('active');
   deleteTargetId = null;
+}
+
+function buildCollage(photoList, entry) {
+  const count = photoList.length;
+  if (count === 0) return '';
+  const shown = photoList.slice(0, 5);
+  const extra = count - 5;
+  const cls = count === 1 ? 'collage-1' : count === 2 ? 'collage-2' : count === 3 ? 'collage-3' : count === 4 ? 'collage-4' : 'collage-5';
+  const text = escapeHtml(entry.text || '');
+  const date = escapeHtml(formatDate(entry.date) || '');
+  let html = `<div class="photo-collage ${cls}">`;
+  shown.forEach((url, i) => {
+    const isLastShown = i === 4 && extra > 0;
+    const safeUrl = escapeHtml(url);
+    html += `<div class="collage-cell"><img class="entry-photo" src="${safeUrl}" alt="photo" loading="lazy" data-full="${safeUrl}" data-text="${text}" data-date="${date}">`;
+    if (isLastShown) html += `<div class="collage-plus-overlay">+${extra}</div>`;
+    html += `</div>`;
+  });
+  html += `</div>`;
+  return html;
 }
 
 /* ── Load & Render Entries ── */
@@ -851,9 +909,8 @@ function renderTimeline() {
       <div class="entry-dot"></div>
       <div class="entry-date">${formatDate(entry.date)}${childLabel}</div>`;
 
-    if (entry.photoURL) {
-      html += `<img class="entry-photo" src="${entry.photoURL}" alt="diary photo" loading="lazy" data-full="${entry.photoURL}" data-text="${escapeHtml(entry.text || '')}" data-date="${escapeHtml(formatDate(entry.date) || '')}">`;
-    }
+    const photoList = entry.photos?.length ? entry.photos : entry.photoURL ? [entry.photoURL] : [];
+    if (photoList.length) html += buildCollage(photoList, entry);
 
     if (entry.text) {
       html += `<div class="entry-text">${escapeHtml(entry.text)}</div>`;
@@ -1108,13 +1165,20 @@ window.addEventListener('resize', () => { if (lbEl.classList.contains('active'))
 
 // Click photo in timeline → open lightbox
 document.getElementById('timeline').addEventListener('click', e => {
-  const img = e.target.closest('.entry-photo');
-  if (!img || !img.dataset.full) return;
-  // Build list of all visible photos in DOM order, find clicked index
   const all = Array.from(document.querySelectorAll('.entry-photo'));
   const list = all.map(el => ({ url: el.dataset.full, text: el.dataset.text || '', date: el.dataset.date || '' }));
-  const idx = all.indexOf(img);
-  openLightbox(list, idx);
+
+  const overlay = e.target.closest('.collage-plus-overlay');
+  if (overlay) {
+    const cell = overlay.closest('.collage-cell');
+    const img = cell?.querySelector('.entry-photo');
+    if (img) openLightbox(list, all.indexOf(img));
+    return;
+  }
+
+  const img = e.target.closest('.entry-photo');
+  if (!img || !img.dataset.full) return;
+  openLightbox(list, all.indexOf(img));
 });
 
 // Toolbar
