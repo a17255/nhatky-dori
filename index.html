@@ -604,6 +604,18 @@ async function tryAutoUnlock() {
   if (saved && saved === passcodeHash) enterApp();
 }
 
+// Auto-enter Admin if this device was remembered (skips lock screen + admin prompt)
+function tryAutoAdmin() {
+  if (localStorage.getItem('dori_admin') !== ADMIN_HASH) return false;
+  isAdmin = true;
+  document.body.classList.add('admin-mode');
+  const btn = document.getElementById('adminToggleBtn');
+  btn.className = 'admin-exit-btn';
+  btn.textContent = 'Exit Admin';
+  enterApp();
+  return true;
+}
+
 /* ── Admin Mode ── */
 async function toggleAdmin() {
   if (isAdmin) {
@@ -612,6 +624,7 @@ async function toggleAdmin() {
     const btn = document.getElementById('adminToggleBtn');
     btn.className = 'admin-enter-btn';
     btn.textContent = 'Admin';
+    localStorage.removeItem('dori_admin');
     renderTimeline();
     toast('Viewer mode');
     return;
@@ -625,6 +638,7 @@ async function toggleAdmin() {
     const btn = document.getElementById('adminToggleBtn');
     btn.className = 'admin-exit-btn';
     btn.textContent = 'Exit Admin';
+    localStorage.setItem('dori_admin', hash);
     renderTimeline();
     toast('Admin mode enabled');
   } else {
@@ -1600,7 +1614,7 @@ function resetDisplaySettings() {
 /* ── Init ── */
 createParticles();
 loadDisplaySettings();
-loadPasscodeHash().then(() => tryAutoUnlock());
+loadPasscodeHash().then(() => { if (!tryAutoAdmin()) tryAutoUnlock(); });
 document.getElementById('passcodeInput').focus();
 </script>
 </body>
