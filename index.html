@@ -306,7 +306,7 @@ body.admin-mode .admin-only{display:flex!important}
   <div class="child-tabs" id="childTabs">
     <div class="child-tab active" onclick="filterChild('all')">All</div>
     <div class="child-tab" onclick="filterChild('Dori')">Dori</div>
-    <div class="child-tab" onclick="filterChild('Baby2')">Baby 2</div>
+    <div class="child-tab" onclick="filterChild('Anna')">Anna</div>
   </div>
   <main class="timeline" id="timeline">
     <div class="loading-state" id="loadingState">
@@ -332,7 +332,7 @@ body.admin-mode .admin-only{display:flex!important}
         <label class="form-label">Child</label>
         <select class="form-input" id="entryChild">
           <option value="Dori">Dori</option>
-          <option value="Baby2">Baby 2</option>
+          <option value="Anna">Anna</option>
         </select>
       </div>
       <div class="form-group">
@@ -446,7 +446,7 @@ body.admin-mode .admin-only{display:flex!important}
         <label class="form-label">Child</label>
         <select class="form-input" id="bulkChild">
           <option value="Dori">Dori</option>
-          <option value="Baby2">Baby 2</option>
+          <option value="Anna">Anna</option>
         </select>
       </div>
       <div class="form-group">
@@ -529,7 +529,7 @@ let entries = [];
 let editingId = null;
 let selectedPhotos = []; // { type: 'file'|'url', data: File|string, preview: string }
 let deleteTargetId = null;
-let currentChild = 'all'; // filter: 'all', 'Dori', 'Baby2'
+let currentChild = 'all'; // filter: 'all', 'Dori', 'Anna'
 let isAdmin = false;
 
 // View passcode hash (passcode: "28032024")
@@ -649,8 +649,8 @@ async function toggleAdmin() {
 /* ── Child Filter ── */
 function filterChild(child) {
   currentChild = child;
-  document.querySelectorAll('.child-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === (child === 'all' ? 'All' : child === 'Baby2' ? 'Baby 2' : child)));
-  const name = child === 'all' ? 'Gia Đình' : (child === 'Baby2' ? 'Baby 2' : child);
+  document.querySelectorAll('.child-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === (child === 'all' ? 'All' : child === 'Anna' ? 'Anna' : child)));
+  const name = child === 'all' ? 'Gia Đình' : (child === 'Anna' ? 'Anna' : child);
   document.getElementById('headerChildName').textContent = name;
   renderTimeline();
 }
@@ -897,11 +897,11 @@ function renderTimeline() {
   const filtered = currentChild === 'all' ? entries : entries.filter(e => (e.child || 'Dori') === currentChild);
 
   if (filtered.length === 0) {
-    const name = currentChild === 'all' ? 'the diary' : (currentChild === 'Baby2' ? "Baby 2's diary" : "Dori's diary");
+    const name = currentChild === 'all' ? 'the diary' : (currentChild === 'Anna' ? "Anna's diary" : "Dori's diary");
     timeline.innerHTML = `
       <div class="empty-state">
         <div class="icon">📖</div>
-        <h2>Start ${currentChild === 'all' ? "the Family" : (currentChild === 'Baby2' ? "Baby 2's" : "Dori's")} Diary</h2>
+        <h2>Start ${currentChild === 'all' ? "the Family" : (currentChild === 'Anna' ? "Anna's" : "Dori's")} Diary</h2>
         <p>${isAdmin ? 'Tap the + button to add the first entry!' : 'No entries yet.'}</p>
       </div>`;
     return;
@@ -917,7 +917,7 @@ function renderTimeline() {
       lastYear = year;
     }
 
-    const childLabel = (currentChild === 'all' && entry.child) ? `<span style="font-size:0.75rem;color:var(--blue);margin-left:8px">${entry.child === 'Baby2' ? 'Baby 2' : entry.child}</span>` : '';
+    const childLabel = (currentChild === 'all' && entry.child) ? `<span style="font-size:0.75rem;color:var(--blue);margin-left:8px">${entry.child === 'Anna' ? 'Anna' : entry.child}</span>` : '';
 
     html += `<div class="entry-card">
       <div class="entry-dot"></div>
